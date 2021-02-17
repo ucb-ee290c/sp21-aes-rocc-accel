@@ -1,3 +1,7 @@
+import chisel3._
+import chisel3.util.HasBlackBoxResource
+import chipsalliance.rocketchip.config.Parameters
+
 class AESIO extends Bundle {
   val clk        = Input(Clock())
   val reset_n    = Input(Bool())

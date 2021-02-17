@@ -1,4 +1,8 @@
-class AESControllerIO extends Bundle {
+import chisel3._
+import chipsalliance.rocketchip.config.Parameters
+import freechips.rocketchip.rocket.HellaCacheIO
+
+class AESControllerIO(implicit p: Parameters) extends Bundle {
   // System
   val reset       = Input(UInt(1.W))
 
@@ -23,7 +27,7 @@ class AESControllerIO extends Bundle {
   val op_type     = Input(Bool())
   val block_count = Input(UInt(32.W))
 
-  val dmem        = HellaCacheIO
+  val dmem        = new HellaCacheIO
 
   // AES Core
   val aes_reset_n = Output(Bool())
@@ -36,6 +40,6 @@ class AESControllerIO extends Bundle {
   val aes_rd_data = Input(UInt(32.W))
 }
 
-class AESController extends MultiIOModule {
+class AESController(implicit p: Parameters) extends MultiIOModule {
   val io = IO(new AESControllerIO)
 }
