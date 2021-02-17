@@ -1,6 +1,11 @@
-class RoCCDecouplerIO extends Bundle {
+import chisel3._
+import freechips.rocketchip.tile.RoCCIO
+import chipsalliance.rocketchip.config.Parameters
+import freechips.rocketchip.rocket.HellaCacheIO
+
+class RoCCDecouplerIO(implicit p: Parameters) extends Bundle {
   // RoCC
-  val rocc_io     = new RoCCIO
+  val rocc_io     = new RoCCIO(0)
 
   // Controller
   val excp_ready  = Input(Bool())
@@ -27,7 +32,7 @@ class RoCCDecouplerIO extends Bundle {
   val dmem          = new HellaCacheIO
 }
 
-class RoCCDecoupler extends MultiIOModule {
+class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   // Internal Registers
   val excp_valid_reg  = RegInit(false.B)
   val key_valid_reg   = RegInit(false.B)
@@ -39,6 +44,7 @@ class RoCCDecoupler extends MultiIOModule {
   val start_valid_reg = RegInit(false.B)
   val op_type_reg     = RegInit(0.U(1.W))
   val block_count_reg = RegInit(0.U(32.W))
+  val resp_valid_reg  = RegInit(false.B)
 
   // Helper wires
   val funct    = Wire(UInt(7.W))
@@ -49,49 +55,47 @@ class RoCCDecoupler extends MultiIOModule {
   val io = IO(new RoCCDecouplerIO)
 
   // Unwrapping RoCCCommands
-  when (rocc_io.cmd.fire) {
-    when (funct == 0.U(7.W)) {
+  when (io.rocc_io.cmd.fire) {
+    when (funct === 0.U(7.W)) {
       key_valid_reg := true.B
       key_size_reg  := 0.U
       key_addr_reg  := rs1_data
-    } .elsewhen (funct == 1.U(7.W)) {
+    } .elsewhen (funct === 1.U(7.W)) {
       key_valid_reg := true.B
       key_size_reg  := 1.U
       key_addr_reg  := rs1_data
-    } .elsewhen (funct == 2.U(7.W)) {
+    } .elsewhen (funct === 2.U(7.W)) {
       addr_valid_reg := true.B
       src_addr_reg   := rs1_data
       dest_addr_reg  := rs2_data
-    } .elsewhen (funct == 3.U(7.W)) {
+    } .elsewhen (funct === 3.U(7.W)) {
       start_valid_reg := true.B
       op_type_reg     := 0.U(1.W)
       block_count_reg := rs1_data
-    } .elsewhen (funct == 4.U(7.W)) {
+    } .elsewhen (funct === 4.U(7.W)) {
       start_valid_reg := true.B
       op_type_reg     := 1.U(1.W)
       block_count_reg := rs1_data
     } 
     // Separate when statement
-    when (funct == 5.U(7.W)) {
-      rocc_io.resp.valid := true.B
-    } .otherwise {
-      rocc_io.resp.valid := false.B
+    when (funct === 5.U(7.W)) {
+      resp_valid_reg := true.B
     }
   }
 
   // When register groups "fire" (ready && valid high)
-  when (key_ready & key_valid) {
+  when (io.key_ready & io.key_valid) {
     key_valid_reg := false.B
   }
-  when (addr_ready & addr_valid) {
+  when (io.addr_ready & io.addr_valid) {
     addr_valid_reg := false.B
   }
-  when (start_ready & start_valid) {
+  when (io.start_ready & io.start_valid) {
     start_valid_reg := false.B
   }
 
   // When response fires
-  when (rocc_io.resp.fire) {
+  when (io.rocc_io.resp.fire) {
     resp_valid_reg := false.B
   }
 
@@ -107,15 +111,15 @@ class RoCCDecoupler extends MultiIOModule {
   io.op_type     := op_type_reg
   io.block_count := block_count_reg
 
-  funct    := rocc_io.cmd.bits.inst.funct
-  rs1_data := rocc_io.cmd.bits.rs1
-  rs2_data := rocc_io.cmd.bits.rs2
+  funct    := io.rocc_io.cmd.bits.inst.funct
+  rs1_data := io.rocc_io.cmd.bits.rs1
+  rs2_data := io.rocc_io.cmd.bits.rs2
   
-  rocc_io.resp.valid     := resp_valid_reg
-  rocc_io.resp.bits.rd   := rocc_io.cmd.bits.inst.rd
-  rocc_io.resp.bits.data := io.busy
-  rocc_io.busy           := io.busy
-  rocc_io.interrupt      := interrupt
+  io.rocc_io.resp.valid     := resp_valid_reg
+  io.rocc_io.resp.bits.rd   := io.rocc_io.cmd.bits.inst.rd
+  io.rocc_io.resp.bits.data := io.busy
+  io.rocc_io.busy           := io.busy
+  io.rocc_io.interrupt      := io.interrupt
 
-  dmem := rocc_io.mem
+  io.dmem := io.rocc_io.mem
 }
