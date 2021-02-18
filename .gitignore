@@ -1,0 +1,5 @@
+target
+project
+
+# ignore swp file
+.*.swp
