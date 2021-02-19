@@ -5,31 +5,11 @@ import freechips.rocketchip.rocket.HellaCacheIO
 
 class RoCCDecouplerIO(implicit p: Parameters) extends Bundle {
   // RoCC
-  val rocc_io     = new RoCCIO(0)
+  val rocc_io = new RoCCIO(0)
 
   // Controller
-  val excp_ready  = Input(Bool())
-  val excp_valid  = Output(Bool())
-  val interrupt   = Input(Bool())
-
-  val busy        = Input(Bool())
-
-  val key_ready   = Input(Bool())
-  val key_valid   = Output(Bool())
-  val key_size    = Output(UInt(1.W))
-  val key_addr    = Output(UInt(32.W))
-
-  val addr_ready  = Input(Bool())
-  val addr_valid  = Output(Bool())
-  val src_addr    = Output(UInt(32.W))
-  val dest_addr   = Output(UInt(32.W))
-
-  val start_ready = Input(Bool())
-  val start_valid = Output(Bool())
-  val op_type     = Output(UInt(1.W))
-  val block_count = Output(UInt(32.W))
-
-  val dmem          = new HellaCacheIO
+  val crtlIO  = Flipped(new DecouplerControllerIO)
+  val dmem    = new HellaCacheIO
 }
 
 class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
@@ -50,6 +30,7 @@ class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   val funct    = Wire(UInt(7.W))
   val rs1_data = Wire(UInt(32.W))
   val rs2_data = Wire(UInt(32.W))
+  val busy     = Wire(Bool())
 
   // IO
   val io = IO(new RoCCDecouplerIO)
@@ -84,13 +65,13 @@ class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   }
 
   // When register groups "fire" (ready && valid high)
-  when (io.key_ready & io.key_valid) {
+  when (io.crtlIO.key_ready & io.crtlIO.key_valid) {
     key_valid_reg := false.B
   }
-  when (io.addr_ready & io.addr_valid) {
+  when (io.crtlIO.addr_ready & io.crtlIO.addr_valid) {
     addr_valid_reg := false.B
   }
-  when (io.start_ready & io.start_valid) {
+  when (io.crtlIO.start_ready & io.crtlIO.start_valid) {
     start_valid_reg := false.B
   }
 
@@ -100,26 +81,27 @@ class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   }
 
   // Assigning other wires/signals
-  io.excp_valid  := excp_valid_reg
-  io.key_valid   := key_valid_reg
-  io.key_size    := key_size_reg
-  io.key_addr    := key_addr_reg
-  io.addr_valid  := addr_valid_reg
-  io.src_addr    := src_addr_reg
-  io.dest_addr   := dest_addr_reg
-  io.start_valid := start_valid_reg
-  io.op_type     := op_type_reg
-  io.block_count := block_count_reg
+  io.crtlIO.excp_valid  := excp_valid_reg
+  io.crtlIO.key_valid   := key_valid_reg
+  io.crtlIO.key_size    := key_size_reg
+  io.crtlIO.key_addr    := key_addr_reg
+  io.crtlIO.addr_valid  := addr_valid_reg
+  io.crtlIO.src_addr    := src_addr_reg
+  io.crtlIO.dest_addr   := dest_addr_reg
+  io.crtlIO.start_valid := start_valid_reg
+  io.crtlIO.op_type     := op_type_reg
+  io.crtlIO.block_count := block_count_reg
 
   funct    := io.rocc_io.cmd.bits.inst.funct
   rs1_data := io.rocc_io.cmd.bits.rs1
   rs2_data := io.rocc_io.cmd.bits.rs2
+  busy     := (start_valid_reg | io.crtlIO.busy)
   
   io.rocc_io.resp.valid     := resp_valid_reg
   io.rocc_io.resp.bits.rd   := io.rocc_io.cmd.bits.inst.rd
-  io.rocc_io.resp.bits.data := io.busy
-  io.rocc_io.busy           := io.busy
-  io.rocc_io.interrupt      := io.interrupt
+  io.rocc_io.resp.bits.data := busy
+  io.rocc_io.busy           := busy
+  io.rocc_io.interrupt      := io.crtlIO.interrupt
 
   io.dmem := io.rocc_io.mem
 }
