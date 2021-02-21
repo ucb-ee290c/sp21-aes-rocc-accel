@@ -1,14 +1,14 @@
 import chisel3._
-import freechips.rocketchip.tile.RoCCIO
+import freechips.rocketchip.tile.RoCCCoreIO
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.rocket.HellaCacheIO
 
 class RoCCDecouplerIO(implicit p: Parameters) extends Bundle {
   // RoCC
-  val rocc_io = new RoCCIO(0)
+  val rocc_io = new RoCCCoreIO
 
   // Controller
-  val crtlIO  = Flipped(new DecouplerControllerIO)
+  val ctrlIO  = Flipped(new DecouplerControllerIO)
   val dmem    = new HellaCacheIO
 }
 
@@ -65,13 +65,13 @@ class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   }
 
   // When register groups "fire" (ready && valid high)
-  when (io.crtlIO.key_ready & io.crtlIO.key_valid) {
+  when (io.ctrlIO.key_ready & io.ctrlIO.key_valid) {
     key_valid_reg := false.B
   }
-  when (io.crtlIO.addr_ready & io.crtlIO.addr_valid) {
+  when (io.ctrlIO.addr_ready & io.ctrlIO.addr_valid) {
     addr_valid_reg := false.B
   }
-  when (io.crtlIO.start_ready & io.crtlIO.start_valid) {
+  when (io.ctrlIO.start_ready & io.ctrlIO.start_valid) {
     start_valid_reg := false.B
   }
 
@@ -81,27 +81,27 @@ class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
   }
 
   // Assigning other wires/signals
-  io.crtlIO.excp_valid  := excp_valid_reg
-  io.crtlIO.key_valid   := key_valid_reg
-  io.crtlIO.key_size    := key_size_reg
-  io.crtlIO.key_addr    := key_addr_reg
-  io.crtlIO.addr_valid  := addr_valid_reg
-  io.crtlIO.src_addr    := src_addr_reg
-  io.crtlIO.dest_addr   := dest_addr_reg
-  io.crtlIO.start_valid := start_valid_reg
-  io.crtlIO.op_type     := op_type_reg
-  io.crtlIO.block_count := block_count_reg
+  io.ctrlIO.excp_valid  := excp_valid_reg
+  io.ctrlIO.key_valid   := key_valid_reg
+  io.ctrlIO.key_size    := key_size_reg
+  io.ctrlIO.key_addr    := key_addr_reg
+  io.ctrlIO.addr_valid  := addr_valid_reg
+  io.ctrlIO.src_addr    := src_addr_reg
+  io.ctrlIO.dest_addr   := dest_addr_reg
+  io.ctrlIO.start_valid := start_valid_reg
+  io.ctrlIO.op_type     := op_type_reg
+  io.ctrlIO.block_count := block_count_reg
 
   funct    := io.rocc_io.cmd.bits.inst.funct
   rs1_data := io.rocc_io.cmd.bits.rs1
   rs2_data := io.rocc_io.cmd.bits.rs2
-  busy     := (start_valid_reg | io.crtlIO.busy)
+  busy     := (start_valid_reg | io.ctrlIO.busy)
   
   io.rocc_io.resp.valid     := resp_valid_reg
   io.rocc_io.resp.bits.rd   := io.rocc_io.cmd.bits.inst.rd
   io.rocc_io.resp.bits.data := busy
   io.rocc_io.busy           := busy
-  io.rocc_io.interrupt      := io.crtlIO.interrupt
+  io.rocc_io.interrupt      := io.ctrlIO.interrupt
 
   io.dmem := io.rocc_io.mem
 }
