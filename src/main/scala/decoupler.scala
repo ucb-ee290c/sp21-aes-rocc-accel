@@ -12,7 +12,7 @@ class RoCCDecouplerIO(implicit p: Parameters) extends Bundle {
   val dmem    = new HellaCacheIO
 }
 
-class RoCCDecoupler(implicit p: Parameters) extends MultiIOModule {
+class RoCCDecoupler(implicit p: Parameters) extends Module {
   // Internal Registers
   val excp_valid_reg  = RegInit(false.B)
   val key_valid_reg   = RegInit(false.B)

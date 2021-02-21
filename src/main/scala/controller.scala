@@ -16,7 +16,7 @@ class AESControllerIO(implicit p: Parameters) extends Bundle {
   val aesCoreIO   = Flipped(new AESCoreIO)
 }
 
-class AESController(implicit p: Parameters) extends MultiIOModule {
+class AESController(implicit p: Parameters) extends Module {
   val io = IO(new AESControllerIO) 
 
   // Set system signals
