@@ -33,3 +33,15 @@ class DecouplerControllerIO extends Bundle {
   val op_type     = Input(Bool())
   val block_count = Input(UInt(32.W))
 }
+
+class MemoryIO extends Bundle {
+  val mem_req_valid = Input(Bool())
+  val mem_req_ready = Output(Bool())
+  val mem_req_cmd = Output(UInt(5.W))
+  val mem_req_size = Output(UInt(3.W))
+  val mem_req_addr = Output(UInt(32.W))
+  val mem_req_data = Output(UInt(32.W))
+
+  val mem_resp_valid = Input(Bool())
+  val mem_resp_data = Input(UInt(32.W))
+}
