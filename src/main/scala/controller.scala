@@ -19,9 +19,6 @@ class AESControllerIO(implicit p: Parameters) extends Bundle {
 class AESController(implicit p: Parameters) extends Module {
   val io = IO(new AESControllerIO) 
 
-  // Set system signals
-  io.dcplrIO.busy := (remain_reg =/= 0.U(32.W))
-  io.aesCoreIO.reset_n := ~io.reset
 
   // Internal Registers
   val key_addr_reg = RegInit(0.U(32.W))
@@ -33,6 +30,23 @@ class AESController(implicit p: Parameters) extends Module {
 
   // Helper Wires
   val addr = Wire(UInt(32.W))
+
+  // Set system signals
+  io.dcplrIO.busy := (remain_reg =/= 0.U(32.W))
+  io.aesCoreIO.reset_n := ~io.reset
+
+  // Set AES State Variables
+  object AESState extends ChiselEnum {
+    val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
+  }
+  val cState = RegInit(AESState.sIdle)
+  val cStateWire = WireDefault(cState)
+
+  // Set Memory State Variables
+  object MemState extends ChiselEnum {
+    val sIdle, sReadAddr, sRead, sWriteAddr, sWrite = Value
+  }
+  val mState = RegInit(MemState.sIdle)
   
   /* AES Controller */
   
@@ -45,21 +59,20 @@ class AESController(implicit p: Parameters) extends Module {
     val TEXT = 32.U(8.W)
     val RESULT = 48.U(8.W)
   }
-  object AESState extends ChiselEnum {
-    val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
-  }
 
-  val cState = RegInit(AESState.sIdle)
-  val cStateWire = Wire(AESState.sIdle)
-
-  // default setting
+  // default setting for dcpolrIO and aesCoreIO
   io.dcplrIO.key_ready := false.B
   io.dcplrIO.addr_ready := false.B
   io.dcplrIO.start_ready := false.B
   io.dcplrIO.excp_ready := true.B
   io.aesCoreIO.we := false.B
   io.aesCoreIO.cs := false.B
+  io.aesCoreIO.clk := clock
+  io.aesCoreIO.write_data := 0.U
+  io.aesCoreIO.address := 0.U
   io.dcplrIO.interrupt := false.B
+
+  addr := 0.U
 
   when (cState === AESState.sKeySetup) {
     addr := key_addr_reg
@@ -198,13 +211,27 @@ class AESController(implicit p: Parameters) extends Module {
   }
 
   // Memory Controller
-  object MemState extends ChiselEnum {
-    val sIdle, sReadAddr, sRead, sWriteAddr, sWrite = Value
-  }
-  val mState = RegInit(MemState.sIdle)
 
   // TODO: Memory requests can be out of order --- we can set the tag field to be the
   //       proper address for the AES core (e.g. tag for Key0 can be '0', and we append a 8'h10 to get addr)
+
+  io.dmem.keep_clock_enabled := false.B
+  io.dmem.req.bits.tag := 0.U
+  io.dmem.req.bits.phys := 0.U
+  io.dmem.s1_data.data := 0.U
+  io.dmem.req.bits.signed := 0.U
+  io.dmem.req.bits.addr := 0.U
+  io.dmem.s2_kill := false.B
+  io.dmem.req.bits.data := 0.U
+  io.dmem.req.bits.mask := 0.U
+  io.dmem.req.bits.cmd := 0.U
+  io.dmem.req.bits.no_xcpt := false.B
+  io.dmem.req.valid := 0.U
+  io.dmem.s1_kill := false.B
+  io.dmem.s1_data.mask := 0.U
+  io.dmem.req.bits.size := 0.U
+  io.dmem.req.bits.no_alloc := 0.U
+  
   switch (mState) {
     is (MemState.sIdle) {
       counter_reg := 0.U;
