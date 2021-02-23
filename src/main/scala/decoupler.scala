@@ -1,15 +1,21 @@
 import chisel3._
+import chisel3.util.Decoupled
 import freechips.rocketchip.tile.RoCCCoreIO
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.rocket.HellaCacheIO
+import freechips.rocketchip.tile.RoCCCommand
+import freechips.rocketchip.tile.RoCCResponse
 
 class RoCCDecouplerIO(implicit p: Parameters) extends Bundle {
-  // RoCC
-  val rocc_io = new RoCCCoreIO
+  // RoCCCommand + Other Signals
+  val rocc_cmd  = Flipped(Decoupled(new RoCCCommand))
+  val rocc_resp = Decoupled(new RoCCResponse)
+  val rocc_busy = Output(Bool())
+  val rocc_intr = Output(Bool())
+  val rocc_excp = Input(Bool())
 
   // Controller
   val ctrlIO  = Flipped(new DecouplerControllerIO)
-  val dmem    = new HellaCacheIO
 }
 
 class RoCCDecoupler(implicit p: Parameters) extends Module {
@@ -36,7 +42,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   val io = IO(new RoCCDecouplerIO)
 
   // Unwrapping RoCCCommands
-  when (io.rocc_io.cmd.fire) {
+  when (io.rocc_cmd.fire) {
     when (funct === 0.U(7.W)) {
       key_valid_reg := true.B
       key_size_reg  := 0.U
@@ -76,7 +82,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   }
 
   // When response fires
-  when (io.rocc_io.resp.fire) {
+  when (io.rocc_resp.fire) {
     resp_valid_reg := false.B
   }
 
@@ -92,16 +98,15 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   io.ctrlIO.op_type     := op_type_reg
   io.ctrlIO.block_count := block_count_reg
 
-  funct    := io.rocc_io.cmd.bits.inst.funct
-  rs1_data := io.rocc_io.cmd.bits.rs1
-  rs2_data := io.rocc_io.cmd.bits.rs2
+  funct    := io.rocc_cmd.bits.inst.funct
+  rs1_data := io.rocc_cmd.bits.rs1
+  rs2_data := io.rocc_cmd.bits.rs2
   busy     := (start_valid_reg | io.ctrlIO.busy)
   
-  io.rocc_io.resp.valid     := resp_valid_reg
-  io.rocc_io.resp.bits.rd   := io.rocc_io.cmd.bits.inst.rd
-  io.rocc_io.resp.bits.data := busy
-  io.rocc_io.busy           := busy
-  io.rocc_io.interrupt      := io.ctrlIO.interrupt
-
-  io.dmem := io.rocc_io.mem
+  io.rocc_cmd.ready      := ~busy
+  io.rocc_resp.valid     := resp_valid_reg
+  io.rocc_resp.bits.rd   := io.rocc_cmd.bits.inst.rd
+  io.rocc_resp.bits.data := busy
+  io.rocc_busy           := busy
+  io.rocc_intr           := io.ctrlIO.interrupt
 }

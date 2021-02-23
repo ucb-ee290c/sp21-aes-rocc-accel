@@ -20,11 +20,15 @@ class AESAccel(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opco
 
 class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) {
   val dcplr = new RoCCDecoupler
-  dcplr.io.rocc_io <> io
+  dcplr.io.rocc_cmd  <> io.cmd
+  dcplr.io.rocc_resp <> io.resp
+  io.busy            := dcplr.io.rocc_busy
+  io.interrupt       := dcplr.io.rocc_intr
+  dcplr.io.rocc_excp := io.exception
 
   val ctrl = new AESController
   ctrl.io.dcplrIO <> dcplr.io.ctrlIO
-  ctrl.io.dmem <> dcplr.io.dmem
+  ctrl.io.dmem <> io.mem
 
   val aesbb = new AESCoreBlackBox
   aesbb.io <> ctrl.io.aesCoreIO

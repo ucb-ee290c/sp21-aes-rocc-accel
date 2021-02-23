@@ -212,9 +212,9 @@ class AESController(implicit p: Parameters) extends Module {
 
   // Memory Controller
 
-  // TODO: Memory requests can be out of order --- we can set the tag field to be the
-  //       proper address for the AES core (e.g. tag for Key0 can be '0', and we append a 8'h10 to get addr)
+  // TODO: Optimize by sending 4 concurrent requests (NEED TO HANDLE REORDERING WITH TAG)
 
+  // TODO: Remove later
   io.dmem.keep_clock_enabled := false.B
   io.dmem.req.bits.tag := 0.U
   io.dmem.req.bits.phys := 0.U

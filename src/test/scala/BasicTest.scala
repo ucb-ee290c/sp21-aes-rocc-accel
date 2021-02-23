@@ -18,7 +18,8 @@ class BasicTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "elaborate the Decoupler" in {
     implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
-    test(new RoCCDecoupler()).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    // .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
+    test(new RoCCDecoupler()) { c =>
       assert(true)
     }
   }
@@ -26,19 +27,20 @@ class BasicTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "elaborate the Controller" in {
     implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
-    test(new AESController()).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    //.withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
+    test(new AESController()) { c =>
       assert(true)
     }
   }
 
-  it should "elaborate the RoCCAccelerator" in {
-    implicit val p: Parameters = VerifTestUtils.getVerifParameters()
-    val dut = LazyModule(new VerifRoCCStandaloneWrapper(() => new AESAccel(OpcodeSet.custom0), beatBytes = 16, addSinks = 0))
+  // it should "elaborate the RoCCAccelerator" in {
+  //   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
+  //   val dut = LazyModule(new VerifRoCCStandaloneWrapper(() => new AESAccel(OpcodeSet.custom0)))
 
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      assert(true)
-    }
-  }
+  //   test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+  //     assert(true)
+  //   }
+  // }
 
   // it should "Decode the instruction" in {
   //   implicit val p = new WithoutTLMonitors
