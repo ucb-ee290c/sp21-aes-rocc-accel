@@ -28,7 +28,10 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
 
   val ctrl = new AESController
   ctrl.io.dcplrIO <> dcplr.io.ctrlIO
-  ctrl.io.dmem <> io.mem
+
+  ctrl.io.dmem.req <> io.mem.req
+  ctrl.io.dmem.resp <> io.mem.resp
+  // TODO: initlize io.mem.<wires>
 
   val aesbb = new AESCoreBlackBox
   aesbb.io <> ctrl.io.aesCoreIO

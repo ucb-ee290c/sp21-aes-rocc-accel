@@ -1,4 +1,10 @@
 import chisel3._
+import chisel3.util.Decoupled
+import chisel3.util.Valid
+import chipsalliance.rocketchip.config.Parameters
+import freechips.rocketchip.rocket.HellaCacheReq
+import freechips.rocketchip.rocket.HellaCacheResp
+import chisel3.experimental.ChiselEnum
 
 // Common Interfaces
 
@@ -34,14 +40,25 @@ class DecouplerControllerIO extends Bundle {
   val block_count = Input(UInt(32.W))
 }
 
-class MemoryIO extends Bundle {
-  val mem_req_valid = Input(Bool())
-  val mem_req_ready = Output(Bool())
-  val mem_req_cmd = Output(UInt(5.W))
-  val mem_req_size = Output(UInt(3.W))
-  val mem_req_addr = Output(UInt(32.W))
-  val mem_req_data = Output(UInt(32.W))
+class MemoryIO (implicit p: Parameters) extends Bundle {
+  val req = Decoupled(new HellaCacheReq)
+  val resp = Flipped(Valid(new HellaCacheResp))
+}
 
-  val mem_resp_valid = Input(Bool())
-  val mem_resp_data = Input(UInt(32.W))
+object AESState extends ChiselEnum {
+    val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
+  }
+
+object MemState extends ChiselEnum {
+    val sIdle, sReadAddr, sRead, sWriteAddr, sWrite = Value
+  }
+
+// AES address map
+object AESAddr {
+  val CTRL = 8.U(8.W)
+  val STATUS = 9.U(8.W)
+  val CONFIG = 10.U(8.W)
+  val KEY = 16.U(8.W)
+  val TEXT = 32.U(8.W)
+  val RESULT = 48.U(8.W)
 }

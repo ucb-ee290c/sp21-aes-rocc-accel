@@ -4,6 +4,10 @@
 .vscode
 target
 project
+test_run_dir
 
 # ignore swp file
 .*.swp
+
+# ignore hidden file
+.*

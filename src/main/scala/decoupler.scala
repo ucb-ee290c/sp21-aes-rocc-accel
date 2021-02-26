@@ -2,7 +2,6 @@ import chisel3._
 import chisel3.util.Decoupled
 import freechips.rocketchip.tile.RoCCCoreIO
 import chipsalliance.rocketchip.config.Parameters
-import freechips.rocketchip.rocket.HellaCacheIO
 import freechips.rocketchip.tile.RoCCCommand
 import freechips.rocketchip.tile.RoCCResponse
 

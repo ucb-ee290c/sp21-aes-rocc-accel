@@ -1,8 +1,6 @@
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.ChiselEnum
 import chipsalliance.rocketchip.config.Parameters
-import freechips.rocketchip.rocket.HellaCacheIO
 
 class AESControllerIO(implicit p: Parameters) extends Bundle {
   // System
@@ -10,7 +8,7 @@ class AESControllerIO(implicit p: Parameters) extends Bundle {
 
   // RoCC Decoupler
   val dcplrIO     = new DecouplerControllerIO
-  val dmem        = new HellaCacheIO
+  val dmem        = new MemoryIO
 
   // AES Core
   val aesCoreIO   = Flipped(new AESCoreIO)
@@ -36,29 +34,28 @@ class AESController(implicit p: Parameters) extends Module {
   io.aesCoreIO.reset_n := ~io.reset
 
   // Set AES State Variables
-  object AESState extends ChiselEnum {
-    val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
-  }
   val cState = RegInit(AESState.sIdle)
   val cStateWire = WireDefault(cState)
+  def printcState (c: UInt) : String = {
+    if(c == 0) return "idle"
+    else if(c == 1.U) return "keysetup"
+    else if(c == 2.U) return "keyexp"
+    else if(c == 3.U) return "waitdata"
+    else if(c == 4.U) return "datasetup"
+    else if(c == 5.U) return "waitstart"
+    else if(c == 6.U) return "aesrun"
+    else if(c == 7.U) return "waitresult"
+    else if(c == 8.U) return "datawrite"
+    else return "none"
+  }
+
 
   // Set Memory State Variables
-  object MemState extends ChiselEnum {
-    val sIdle, sReadAddr, sRead, sWriteAddr, sWrite = Value
-  }
   val mState = RegInit(MemState.sIdle)
   
+  printf(p"ctrl state: ${cState.do_asUInt}; mem state: ${mState.do_asUInt}\n")
   /* AES Controller */
   
-  // AES address map
-  object AESAddr {
-    val CTRL = 8.U(8.W)
-    val STATUS = 9.U(8.W)
-    val CONFIG = 10.U(8.W)
-    val KEY = 16.U(8.W)
-    val TEXT = 32.U(8.W)
-    val RESULT = 48.U(8.W)
-  }
 
   // default setting for dcpolrIO and aesCoreIO
   io.dcplrIO.key_ready := false.B
@@ -92,7 +89,7 @@ class AESController(implicit p: Parameters) extends Module {
 
   switch (cState) {
     is (AESState.sIdle) {
-      io.dcplrIO.key_ready := 1.U
+      io.dcplrIO.key_ready := true.B
       io.dcplrIO.interrupt := false.B
 
       when (io.dcplrIO.key_valid) {
@@ -143,16 +140,25 @@ class AESController(implicit p: Parameters) extends Module {
         src_addr_reg := io.dcplrIO.src_addr
         dest_addr_reg := io.dcplrIO.dest_addr
 
-        mState := MemState.sWriteAddr
+        mState := MemState.sReadAddr
         cStateWire := AESState.sDataSetup
       }
     }
     is (AESState.sDataSetup) {
       // wait data loading from memory
-      when (mState === MemState.sIdle && remain_reg === 0.U) {
-        cStateWire := AESState.sWaitStart
+      when (remain_reg === 0.U) {
+        // haven't set num of block
+        when (mState === MemState.sIdle) {
+          cStateWire := AESState.sWaitStart
+        } .otherwise {
+          cStateWire := AESState.sDataSetup
+        }
       } .otherwise {
-        cStateWire := AESState.sAESRun
+        when (mState === MemState.sIdle) {
+          cStateWire := AESState.sAESRun
+        } .otherwise {
+          cStateWire := AESState.sDataSetup
+        }
       }
     }
     is (AESState.sWaitStart) {
@@ -166,6 +172,7 @@ class AESController(implicit p: Parameters) extends Module {
 
         // set number of blocks
         remain_reg := io.dcplrIO.block_count
+        cStateWire := AESState.sAESRun
       }
     }
     is (AESState.sAESRun) {
@@ -200,6 +207,8 @@ class AESController(implicit p: Parameters) extends Module {
           // go back to DataSetup to read next text
           src_addr_reg := src_addr_reg + 4.U
           dest_addr_reg := dest_addr_reg + 4.U
+
+          mState := MemState.sReadAddr
           cStateWire := AESState.sDataSetup
         } .elsewhen (remain_reg === 0.U) {
           // done encryption/decryption, set interrupt
@@ -215,22 +224,26 @@ class AESController(implicit p: Parameters) extends Module {
   // TODO: Optimize by sending 4 concurrent requests (NEED TO HANDLE REORDERING WITH TAG)
 
   // TODO: Remove later
-  io.dmem.keep_clock_enabled := false.B
-  io.dmem.req.bits.tag := 0.U
-  io.dmem.req.bits.phys := 0.U
+  /*io.dmem.keep_clock_enabled := false.B
   io.dmem.s1_data.data := 0.U
-  io.dmem.req.bits.signed := 0.U
-  io.dmem.req.bits.addr := 0.U
   io.dmem.s2_kill := false.B
+  io.dmem.s1_kill := false.B
+  io.dmem.s1_data.mask := 0.U*/
+  
+  // Req Internal Wires
+  io.dmem.req.bits.no_xcpt := false.B
+  io.dmem.req.bits.phys := 0.U
+  io.dmem.req.bits.no_alloc := 0.U
+  
+  // Req External Wires
+  io.dmem.req.valid := 0.U
   io.dmem.req.bits.data := 0.U
+  io.dmem.req.bits.tag := 0.U
+  io.dmem.req.bits.size := 0.U
   io.dmem.req.bits.mask := 0.U
   io.dmem.req.bits.cmd := 0.U
-  io.dmem.req.bits.no_xcpt := false.B
-  io.dmem.req.valid := 0.U
-  io.dmem.s1_kill := false.B
-  io.dmem.s1_data.mask := 0.U
-  io.dmem.req.bits.size := 0.U
-  io.dmem.req.bits.no_alloc := 0.U
+  io.dmem.req.bits.signed := 0.U
+  io.dmem.req.bits.addr := 0.U
   
   switch (mState) {
     is (MemState.sIdle) {
