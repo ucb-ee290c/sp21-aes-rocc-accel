@@ -4,6 +4,8 @@
 
 // NOTE: Temporary file, will remove when integrated with Chipyard
 
+package aes
+
 import chisel3._
 import chisel3.experimental.{IO}
 import chisel3.util._

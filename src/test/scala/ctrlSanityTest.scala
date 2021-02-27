@@ -1,5 +1,6 @@
-import org.scalatest._
+package aes
 
+import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
@@ -13,17 +14,8 @@ import freechips.rocketchip.tile.OpcodeSet
 import freechips.rocketchip.diplomacy.LazyModule
 import chiseltest.internal.VerilatorBackendAnnotation
 
-class BasicTest extends AnyFlatSpec with ChiselScalatestTester {
-  
-  it should "elaborate the Decoupler" in {
-    implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
-    // .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
-    test(new RoCCDecoupler()) { c =>
-      assert(true)
-    }
-  }
-
+class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "elaborate the Controller" in {
     implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
@@ -79,14 +71,4 @@ class BasicTest extends AnyFlatSpec with ChiselScalatestTester {
       println("------- ALL DONE -------")
     }
   }
-
-  // it should "elaborate the RoCCAccelerator" in {
-  //   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
-  //   val dut = LazyModule(new VerifRoCCStandaloneWrapper(() => new AESAccel(OpcodeSet.custom0)))
-
-  //   test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-  //     assert(true)
-  //   }
-  // }
-
 }
