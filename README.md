@@ -10,7 +10,7 @@ You should already have this from lab1.
 Note that we start in the chipyard root directory.
 ```
 ~/chipyard> cd tools
-~/chipyard/tools> git submodule add git@github.com:TsaiAnson/verif
+~/chipyard/tools> git submodule add https://github.com/TsaiAnson/verif.git
 ```
 
 ### Installing the AES RoCC Accelerator Generator
