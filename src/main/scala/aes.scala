@@ -22,6 +22,7 @@ class AESAccel(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opco
 
 class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) {
   val dcplr = new RoCCDecoupler
+  dcplr.io.reset     := reset
   dcplr.io.rocc_cmd  <> io.cmd
   dcplr.io.rocc_resp <> io.resp
   io.busy            := dcplr.io.rocc_busy
