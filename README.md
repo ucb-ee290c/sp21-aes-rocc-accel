@@ -4,8 +4,8 @@
 As the tests depend on the chisel verification library, this generator must be built alongside Chipyard.
 
 ### Installing Chipyard
-NOTE: The Chipyard version must be >= 1.3. The chipyard lab repo has a branch `v1p4` for version 1.4. 
-(This may be already be merged into master. If unsure, ask.)
+You should already have chipyard installed from lab 1. However, double check that the chipyard version  is >= 1.3. 
+If not, please update your chipyard (The chipyard lab repo has a branch `v1p4` for version 1.4. This may be already be merged into master. If unsure, ask.)
 
 ### Installing Chisel Verification Library
 Note that we start in the chipyard root directory.
