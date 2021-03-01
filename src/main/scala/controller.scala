@@ -55,7 +55,7 @@ class AESController(implicit p: Parameters) extends Module {
   // Set Memory State Variables
   val mState = RegInit(MemState.sIdle)
   
-  printf(p"ctrl state: ${cState.do_asUInt}; mem state: ${mState.do_asUInt}\n")
+//  printf(p"ctrl state: ${cState.do_asUInt}; mem state: ${mState.do_asUInt}\n")
   /* AES Controller */
   
 
@@ -233,6 +233,7 @@ class AESController(implicit p: Parameters) extends Module {
   io.dmem.s1_data.mask := 0.U*/
   
   // Req Internal Wires
+  io.dmem.req.bits.dprv := 3.U
   io.dmem.req.bits.no_xcpt := false.B
   io.dmem.req.bits.phys := 0.U
   io.dmem.req.bits.no_alloc := 0.U
