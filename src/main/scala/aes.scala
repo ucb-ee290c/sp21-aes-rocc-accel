@@ -10,9 +10,16 @@ import freechips.rocketchip.tile.OpcodeSet
 import freechips.rocketchip.tile.BuildRoCC
 import freechips.rocketchip.diplomacy.LazyModule
 
-class AESCoreBlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
+// Blackbox (Class name must match top-level verilog file)
+class aes(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
   val io = IO(new AESCoreIO)
 
+  addResource("/vsrc/aes_core.v")
+  addResource("/vsrc/aes_decipher_block.v")
+  addResource("/vsrc/aes_encipher_block.v")
+  addResource("/vsrc/aes_inv_sbox.v")
+  addResource("/vsrc/aes_key_mem.v")
+  addResource("/vsrc/aes_sbox.v")
   addResource("/vsrc/aes.v")
 }
 
@@ -21,22 +28,23 @@ class AESAccel(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opco
 }
 
 class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) {
-  val dcplr = new RoCCDecoupler
-  dcplr.io.reset     := reset
+  val dcplr = Module(new RoCCDecoupler)
+  dcplr.io.reset     := reset.asBool()
   dcplr.io.rocc_cmd  <> io.cmd
-  dcplr.io.rocc_resp <> io.resp
+  io.resp            <> dcplr.io.rocc_resp
   io.busy            := dcplr.io.rocc_busy
   io.interrupt       := dcplr.io.rocc_intr
   dcplr.io.rocc_excp := io.exception
 
-  val ctrl = new AESController
+  val ctrl = Module(new AESController)
+  ctrl.io.reset   := reset.asBool()
   ctrl.io.dcplrIO <> dcplr.io.ctrlIO
 
-  ctrl.io.dmem.req <> io.mem.req
+  io.mem.req        <> ctrl.io.dmem.req
   ctrl.io.dmem.resp <> io.mem.resp
   // TODO: initlize io.mem.<wires>
 
-  val aesbb = new AESCoreBlackBox
+  val aesbb = Module(new aes)
   aesbb.io <> ctrl.io.aesCoreIO
 }
 
