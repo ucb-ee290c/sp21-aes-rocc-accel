@@ -14,6 +14,13 @@ class AESControllerIO(implicit p: Parameters) extends Bundle {
 
   // AES Core
   val aesCoreIO   = Flipped(new AESCoreIO)
+
+  // test signal
+  val testRemain = Output(UInt(32.W))
+  val testCounter = Output(UInt(32.W))
+  val setcState = Input(UInt(4.W))
+  val ctestState  = Output(UInt(4.W))
+  val mtestState  = Output(UInt(3.W))
 }
 
 class AESController(implicit p: Parameters) extends Module {
@@ -38,22 +45,12 @@ class AESController(implicit p: Parameters) extends Module {
   // Set AES State Variables
   val cState = RegInit(AESState.sIdle)
   val cStateWire = WireDefault(cState)
-  def printcState (c: UInt) : String = {
-    if(c == 0) return "idle"
-    else if(c == 1.U) return "keysetup"
-    else if(c == 2.U) return "keyexp"
-    else if(c == 3.U) return "waitdata"
-    else if(c == 4.U) return "datasetup"
-    else if(c == 5.U) return "waitstart"
-    else if(c == 6.U) return "aesrun"
-    else if(c == 7.U) return "waitresult"
-    else if(c == 8.U) return "datawrite"
-    else return "none"
-  }
+  io.ctestState := cState.asUInt
 
 
   // Set Memory State Variables
   val mState = RegInit(MemState.sIdle)
+  io.mtestState := mState.asUInt
   
 //  printf(p"ctrl state: ${cState.do_asUInt}; mem state: ${mState.do_asUInt}\n")
   /* AES Controller */
@@ -70,8 +67,10 @@ class AESController(implicit p: Parameters) extends Module {
   io.aesCoreIO.write_data := 0.U
   io.aesCoreIO.address := 0.U
   io.dcplrIO.interrupt := false.B
+  cStateWire := AESState.sIdle
+  io.testRemain := remain_reg
+  io.testCounter := counter_reg
 
-  addr := 0.U
 
   when (cState === AESState.sKeySetup) {
     addr := key_addr_reg
@@ -79,6 +78,8 @@ class AESController(implicit p: Parameters) extends Module {
     addr := src_addr_reg
   } .elsewhen (cState === AESState.sDataWrite) {
     addr := dest_addr_reg
+  } .otherwise {
+    addr := 0.U
   }
 
   // Separate state FSM w/ reset
@@ -115,6 +116,7 @@ class AESController(implicit p: Parameters) extends Module {
     }
     is (AESState.sKeySetup) {
       // wait data loading from memory
+      cStateWire := AESState.sKeySetup;
       when (mState === MemState.sIdle) {
         // set key init
         io.aesCoreIO.cs := 1.U
@@ -130,11 +132,13 @@ class AESController(implicit p: Parameters) extends Module {
       // wait aes key expansion
       io.aesCoreIO.cs := 1.U
       io.aesCoreIO.address := AESAddr.STATUS
+      cStateWire := AESState.sKeyExp;
       when(io.aesCoreIO.read_data(0) === 1.U) {
         cStateWire := AESState.sWaitData
       }
     }
     is (AESState.sWaitData) {
+      cStateWire := AESState.sWaitData
       io.dcplrIO.addr_ready := 1.U
       when (io.dcplrIO.addr_valid) {
         // set memory addr and start memory read
@@ -164,6 +168,7 @@ class AESController(implicit p: Parameters) extends Module {
       }
     }
     is (AESState.sWaitStart) {
+      cStateWire := AESState.sWaitStart
       io.dcplrIO.start_ready := 1.U
       when (io.dcplrIO.start_valid) {
         // set enc/dec mode
@@ -178,6 +183,7 @@ class AESController(implicit p: Parameters) extends Module {
       }
     }
     is (AESState.sAESRun) {
+      cStateWire := AESState.sAESRun
       // set aes control NEXT
       io.aesCoreIO.cs := 1.U
       io.aesCoreIO.we := 1.U
@@ -188,6 +194,7 @@ class AESController(implicit p: Parameters) extends Module {
       }
     }
     is (AESState.sWaitResult) {
+      cStateWire := AESState.sWaitResult
       io.aesCoreIO.cs := 1.U
       io.aesCoreIO.address := AESAddr.STATUS
       when(io.aesCoreIO.read_data(0) === 1.U) {
@@ -204,19 +211,22 @@ class AESController(implicit p: Parameters) extends Module {
         // read aes result 
         io.aesCoreIO.cs := 1.U
         io.aesCoreIO.address := AESAddr.RESULT + counter_reg
+        cStateWire := AESState.sDataWrite
       } .elsewhen (mState === MemState.sIdle) {
         when (remain_reg > 0.U) {
           // go back to DataSetup to read next text
-          src_addr_reg := src_addr_reg + 4.U
-          dest_addr_reg := dest_addr_reg + 4.U
+          src_addr_reg := src_addr_reg + 16.U
+          dest_addr_reg := dest_addr_reg + 16.U
 
           mState := MemState.sReadAddr
           cStateWire := AESState.sDataSetup
-        } .elsewhen (remain_reg === 0.U) {
+        } .otherwise {
           // done encryption/decryption, set interrupt
-          cStateWire := AESState.sIdle
           io.dcplrIO.interrupt := true.B
+          cStateWire := AESState.sIdle
         }
+      } .otherwise {
+        cStateWire := AESState.sDataWrite
       }
     }
   }
@@ -239,7 +249,7 @@ class AESController(implicit p: Parameters) extends Module {
   io.dmem.req.bits.no_alloc := 0.U
   
   // Req External Wires
-  io.dmem.req.valid := 0.U
+  io.dmem.req.valid := false.B
   io.dmem.req.bits.data := 0.U
   io.dmem.req.bits.tag := 0.U
   io.dmem.req.bits.size := 0.U
@@ -247,6 +257,7 @@ class AESController(implicit p: Parameters) extends Module {
   io.dmem.req.bits.cmd := 0.U
   io.dmem.req.bits.signed := 0.U
   io.dmem.req.bits.addr := 0.U
+  io.dmem.req.bits.dprv := 0.U
   
   switch (mState) {
     is (MemState.sIdle) {
@@ -257,24 +268,26 @@ class AESController(implicit p: Parameters) extends Module {
         // memory read done
         mState := MemState.sIdle
       } .otherwise {
+        mState := MemState.sReadAddr
         // set memory read address
-        io.dmem.req.valid := 1.U
+        io.dmem.req.valid := true.B
+        io.dmem.req.bits.addr := addr + 4.U * counter_reg
+        io.dmem.req.bits.cmd := 0.U
+        io.dmem.req.bits.size := 2.U
         when (io.dmem.req.ready) {
-          io.dmem.req.bits.addr := addr + 4.U * counter_reg
-          io.dmem.req.bits.cmd := 0.U
-          io.dmem.req.bits.size := 2.U
           mState := MemState.sRead
         }
       }
     }
     is (MemState.sRead) {
+      mState := MemState.sRead
       when (io.dmem.resp.valid) { // memory responds data
         io.aesCoreIO.cs := 1.U
         io.aesCoreIO.we := 1.U
         io.aesCoreIO.write_data := io.dmem.resp.bits.data 
         when (cState === AESState.sKeySetup) {
           io.aesCoreIO.address := AESAddr.KEY + counter_reg
-        } .otherwise {
+        } .elsewhen (cState === AESState.sDataSetup) {
           io.aesCoreIO.address := AESAddr.TEXT + counter_reg
         }
         counter_reg := counter_reg + 1.U;
@@ -286,13 +299,14 @@ class AESController(implicit p: Parameters) extends Module {
         // memory write done
         mState := MemState.sIdle
       } .otherwise {
+        mState := MemState.sWriteAddr
         // write data to memory
-        io.dmem.req.valid := 1.U
+        io.dmem.req.valid := true.B
+        io.dmem.req.bits.addr := addr + 4.U * counter_reg
+        io.dmem.req.bits.data := io.aesCoreIO.read_data
+        io.dmem.req.bits.cmd := 1.U
+        io.dmem.req.bits.size := 2.U
         when (io.dmem.req.ready) {
-          io.dmem.req.bits.addr := addr + 4.U * counter_reg
-          io.dmem.req.bits.cmd := 1.U
-          io.dmem.req.bits.size := 2.U
-          io.dmem.req.bits.data := io.aesCoreIO.read_data
           mState := MemState.sWrite
           counter_reg := counter_reg + 1.U;
         }
