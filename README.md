@@ -78,6 +78,7 @@ lazy val verifGemmini = (project in file("./tools/verif/cosim"))
 
 lazy val dma = (project in file("generators/dma"))
   .sourceDependency(chiselRef, chiselLib)
+  .dependsOn(verifCore, verifTL, verifGemmini)
   .settings(commonSettings)
   .settings(verifSettings)
 
