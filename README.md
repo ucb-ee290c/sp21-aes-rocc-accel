@@ -1,7 +1,8 @@
 # AES RoCC Accelerator/Co-Processor --- EE290C
 
 ## Requirements
-As the tests depend on the chisel verification library, this generator must be built alongside Chipyard.
+The AES RoCC Accelerator utilizes a DMA generator and the chisel verification library.
+As such, this accelerator generator must be built alongside Chipyard.
 
 ### Installing Chipyard
 You should already have chipyard installed from lab 1. However, double check that the chipyard version  is >= 1.3. 
@@ -13,6 +14,14 @@ Note that we start in the chipyard root directory.
 ~/chipyard> cd tools
 ~/chipyard/tools> git submodule add https://github.com/TsaiAnson/verif.git
 ```
+
+### Installing the DMA Generator
+Note that we start in the chipyard root directory.
+```
+~/chipyard> cd generators
+~/chipyard/generators> git submodule add git@bwrcrepo.eecs.berkeley.edu:EE290C_EE194_tstech28/dma.git
+```
+
 
 ### Installing the AES RoCC Accelerator Generator
 Note that we start in the chipyard root directory.
@@ -67,9 +76,14 @@ lazy val verifGemmini = (project in file("./tools/verif/cosim"))
   .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.14.0")
   .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0")
 
+lazy val dma = (project in file("generators/dma"))
+  .sourceDependency(chiselRef, chiselLib)
+  .settings(commonSettings)
+  .settings(verifSettings)
+
 lazy val aes = (project in file("generators/aes"))
   .sourceDependency(chiselRef, chiselLib)
-  .dependsOn(verifCore, verifTL, verifGemmini)
+  .dependsOn(verifCore, verifTL, verifGemmini, dma)
   .settings(commonSettings)
   .settings(verifSettings)
 ```
