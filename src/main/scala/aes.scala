@@ -53,12 +53,3 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
   val dma = LazyModule(new EE290CDMA(8, 256, "AESAccelDMA"))
   // TODO: Fix up IO
 }
-
-class WithAESAccel extends Config((site, here, up) => {
-  case BuildRoCC => up(BuildRoCC) ++ Seq(
-    (p: Parameters) => {
-      val aes = LazyModule.apply(new AESAccel(OpcodeSet.custom0)(p))
-      aes
-    }
-  )
-})
