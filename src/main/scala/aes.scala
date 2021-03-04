@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util.HasBlackBoxResource
 import chipsalliance.rocketchip.config.Parameters
 import chipsalliance.rocketchip.config.Config
+import ee290cdma.EE290CDMA
 import freechips.rocketchip.tile.LazyRoCC
 import freechips.rocketchip.tile.LazyRoCCModuleImp
 import freechips.rocketchip.tile.OpcodeSet
@@ -46,13 +47,9 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
 
   val aesbb = Module(new aes)
   aesbb.io <> ctrl.io.aesCoreIO
-}
 
-class WithAESAccel extends Config((site, here, up) => {
-  case BuildRoCC => up(BuildRoCC) ++ Seq(
-    (p: Parameters) => {
-      val aes = LazyModule.apply(new AESAccel(OpcodeSet.custom0)(p))
-      aes
-    }
-  )
-})
+  // DMA
+  // NOTE: Hardcoded beatbytes for now
+  val dma = LazyModule(new EE290CDMA(8, 256, "AESAccelDMA"))
+  // TODO: Fix up IO
+}
