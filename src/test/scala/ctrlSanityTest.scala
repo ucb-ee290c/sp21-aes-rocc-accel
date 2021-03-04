@@ -18,7 +18,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "elaborate the Controller" in {
     //.withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
-    test(new AESController()) { c =>
+    test(new Controller()) { c =>
       assert(true)
     }
   }
@@ -26,13 +26,14 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "test controller state transitions" in {
     implicit val p: Parameters = VerifTestUtils.getVerifParameters()
     val key_addr = 20.U
+    val key_size  = 0
     var src_addr = 40
     var dest_addr = 100
     val op_type = true.B
     val num_block = 3
     var counter = 0
 
-    test(new AESController()) { c =>
+    test(new Controller()) { c =>
       c.io.dmem.req.ready.poke(false.B) // memory always ready
       c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
       c.io.dcplrIO.key_valid.poke(false.B) // decoupler key always valid
@@ -50,7 +51,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(c.io.dcplrIO.key_ready.peek.litToBoolean)
       c.io.dcplrIO.key_valid.poke(true.B)
       c.io.dcplrIO.key_addr.poke(key_addr)
-      c.io.dcplrIO.key_size.poke(0.U)
+      c.io.dcplrIO.key_size.poke(key_size.asUInt)
       c.clock.step() 
       assert(!c.io.dcplrIO.key_ready.peek.litToBoolean)
       c.io.dcplrIO.key_valid.poke(false.B) // load key done, set key_valid false
@@ -62,7 +63,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       // wait for memory loading key
       c.io.dmem.req.ready.poke(true.B) // memory always ready
       c.io.dmem.resp.valid.poke(true.B) // memory resp always valid
-      while (c.io.testCounter.peek.litValue() != 4) {
+      while (c.io.testCounter.peek.litValue() != 4 * (key_size + 1)) {
         assert (c.io.dmem.req.valid.peek.litToBoolean)
         // check memory address is correct
         assert (c.io.dmem.req.bits.addr.peek.litValue() == (key_addr.litValue() + 4 * counter))
@@ -274,7 +275,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
   // To Eric: Here is an example of a test using the drivers/monitors to mimic the HellaCache Interface
   // It does not act like the true cache, but at least we can receive requests and send responses
   it should "test key memory access" in {
-    test(new AESController()) { c =>
+    test(new Controller()) { c =>
       // Initializing RoCCCommand driver, receiver (dummy), and monitor
       val driver = new verif.ValidDriver[HellaCacheResp](c.clock, c.io.dmem.resp) // Used to send responses, takes in ValidTX
       val monitor = new DecoupledMonitor[HellaCacheReq](c.clock, c.io.dmem.req) // Used to observe all transactions on this interface
@@ -290,6 +291,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.src_addr.poke(0.U(32.W))
       c.io.dcplrIO.dest_addr.poke(0.U(32.W))
+      
       c.io.dcplrIO.start_valid.poke(false.B)
       c.io.dcplrIO.op_type.poke(false.B)
       c.io.dcplrIO.block_count.poke(0.U(32.W))
@@ -310,33 +312,35 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       }
 
       // Triggering key expansion
-      c.io.dcplrIO.key_valid.poke(true.B)
       val op_type = r.nextInt(2)
+      val addr = r.nextInt(1 << 32)
+      c.io.dcplrIO.key_valid.poke(true.B)
       c.io.dcplrIO.key_size.poke(op_type.U(1.W))
-      val addr = r.nextInt(2 << 32)
       c.io.dcplrIO.key_addr.poke(addr.U(32.W))
-      c.clock.step()
 
+      c.clock.step()
       while (c.io.dcplrIO.key_ready.peek.litToBoolean) {
         c.clock.step()
       }
       c.io.dcplrIO.key_valid.poke(false.B)
       c.clock.step()
+      
 
       // Check state here
       // assert(c.io.state == KEY...)...
+      assert (c.io.ctestState.peek.litValue() == AESState.sKeySetup.litValue())
 
       // Here we check to see if we got a response. I increment by a fixed number of cycles, but this can be changed
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
       val times = if (op_type == 1) 8 else 4
-      for (_ <- 0 until times) {
+      for (i <- 0 until times) {
         // Check that we actually received a memory request
         assert(!monitor.monitoredTransactions.isEmpty)
         val req = monitor.monitoredTransactions.head
         monitor.clearMonitoredTransactions()
-        assert(req.data.addr.litValue() == addr)
+        assert(req.data.addr.litValue() == addr + 4 * i)
         // You should do more checks here
 
         // Send a response

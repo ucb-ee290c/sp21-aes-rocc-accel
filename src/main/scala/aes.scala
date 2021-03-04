@@ -36,7 +36,7 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
   io.interrupt       := dcplr.io.rocc_intr
   dcplr.io.rocc_excp := io.exception
 
-  val ctrl = Module(new AESController)
+  val ctrl = Module(new Controller)
   ctrl.io.reset   := reset.asBool()
   ctrl.io.dcplrIO <> dcplr.io.ctrlIO
 

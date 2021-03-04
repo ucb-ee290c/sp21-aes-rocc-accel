@@ -3,36 +3,39 @@ package aes
 import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config.Parameters
+import ee290cdma.{EE290CDMADMAReadIO, EE290CDMADMAWriteIO}
 
-class AESControllerIO(implicit p: Parameters) extends Bundle {
+class ControllerIO(implicit p: Parameters) extends Bundle {
   // System
   val reset       = Input(Bool())
 
   // RoCC Decoupler
   val dcplrIO     = new DecouplerControllerIO
   val dmem        = new MemoryIO
+  val dmaread         = new EE290CDMADMAReadIO(32, 4, 2)
+  val dmawrite       = new EE290CDMADMAWriteIO(32, 4)
 
   // AES Core
   val aesCoreIO   = Flipped(new AESCoreIO)
 
   // test signal
   val testRemain = Output(UInt(32.W))
-  val testCounter = Output(UInt(32.W))
+  val testCounter = Output(UInt(4.W))
   val setcState = Input(UInt(4.W))
   val ctestState  = Output(UInt(4.W))
   val mtestState  = Output(UInt(3.W))
 }
 
-class AESController(implicit p: Parameters) extends Module {
-  val io = IO(new AESControllerIO) 
+class Controller(implicit p: Parameters) extends Module {
+  val io = IO(new ControllerIO) 
 
 
   // Internal Registers
   val key_addr_reg = RegInit(0.U(32.W))
   val src_addr_reg = RegInit(0.U(32.W))
   val dest_addr_reg = RegInit(0.U(32.W))
-  val counter_reg = RegInit(0.U(3.W))
-  val target_reg = RegInit(0.U(3.W))
+  val counter_reg = RegInit(0.U(4.W))
+  val target_reg = RegInit(0.U(4.W))
   val remain_reg = RegInit(0.U(32.W))
 
   // Helper Wires
@@ -45,14 +48,11 @@ class AESController(implicit p: Parameters) extends Module {
   // Set AES State Variables
   val cState = RegInit(AESState.sIdle)
   val cStateWire = WireDefault(cState)
-  io.ctestState := cState.asUInt
 
 
   // Set Memory State Variables
   val mState = RegInit(MemState.sIdle)
-  io.mtestState := mState.asUInt
   
-//  printf(p"ctrl state: ${cState.do_asUInt}; mem state: ${mState.do_asUInt}\n")
   /* AES Controller */
   
 
@@ -67,11 +67,15 @@ class AESController(implicit p: Parameters) extends Module {
   io.aesCoreIO.write_data := 0.U
   io.aesCoreIO.address := 0.U
   io.dcplrIO.interrupt := false.B
-  cStateWire := AESState.sIdle
+  
+  // testing IO setting
+  io.ctestState := cState.asUInt
+  io.mtestState := mState.asUInt
   io.testRemain := remain_reg
   io.testCounter := counter_reg
 
-
+  // default wires setting
+  cStateWire := AESState.sIdle
   when (cState === AESState.sKeySetup) {
     addr := key_addr_reg
   } .elsewhen (cState === AESState.sDataSetup) {
@@ -198,7 +202,6 @@ class AESController(implicit p: Parameters) extends Module {
       io.aesCoreIO.cs := 1.U
       io.aesCoreIO.address := AESAddr.STATUS
       when(io.aesCoreIO.read_data(0) === 1.U) {
-        addr := io.dcplrIO.dest_addr
         target_reg := 4.U
         remain_reg := remain_reg - 1.U
 
