@@ -5,11 +5,9 @@ import chisel3.util.HasBlackBoxResource
 import chipsalliance.rocketchip.config.Parameters
 import chipsalliance.rocketchip.config.Config
 import ee290cdma.EE290CDMA
-import freechips.rocketchip.tile.LazyRoCC
-import freechips.rocketchip.tile.LazyRoCCModuleImp
-import freechips.rocketchip.tile.OpcodeSet
-import freechips.rocketchip.tile.BuildRoCC
+import freechips.rocketchip.tile.{BuildRoCC, HasCoreParameters, LazyRoCC, LazyRoCCModuleImp, OpcodeSet}
 import freechips.rocketchip.diplomacy.LazyModule
+import freechips.rocketchip.subsystem.SystemBusKey
 
 // Blackbox (Class name must match top-level verilog file)
 class aes(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
@@ -28,7 +26,9 @@ class AESAccel(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opco
   override lazy val module = new AESAccelImp(this)
 }
 
-class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) {
+class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) with HasCoreParameters {
+  val beatBytes = p(SystemBusKey).beatBytes
+
   val dcplr = Module(new RoCCDecoupler)
   dcplr.io.reset     := reset.asBool()
   dcplr.io.rocc_cmd  <> io.cmd
@@ -37,19 +37,17 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
   io.interrupt       := dcplr.io.rocc_intr
   dcplr.io.rocc_excp := io.exception
 
-  val ctrl = Module(new AESController)
+  val ctrl = Module(new AESController(paddrBits, beatBytes))
   ctrl.io.reset   := reset.asBool()
   ctrl.io.dcplrIO <> dcplr.io.ctrlIO
 
-  io.mem.req        <> ctrl.io.dmem.req
-  ctrl.io.dmem.resp <> io.mem.resp
-  // TODO: initlize io.mem.<wires>
+  val dma = LazyModule(new EE290CDMA(beatBytes, 256, "AESAccelDMA"))
+  dma.module.io.read.req <> ctrl.io.dmem.readReq
+  dma.module.io.write.req <> ctrl.io.dmem.writeReq
+  ctrl.io.dmem.readResp <> dma.module.io.read.resp
+  ctrl.io.dmem.readRespQueue <> dma.module.io.read.queue
+  ctrl.io.dmem.busy  <> dma.module.io.busy
 
   val aesbb = Module(new aes)
   aesbb.io <> ctrl.io.aesCoreIO
-
-  // DMA
-  // NOTE: Hardcoded beatbytes for now
-  val dma = LazyModule(new EE290CDMA(8, 256, "AESAccelDMA"))
-  // TODO: Fix up IO
 }

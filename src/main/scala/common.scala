@@ -2,11 +2,9 @@ package aes
 
 import chisel3._
 import chisel3.util.Decoupled
-import chisel3.util.Valid
 import chipsalliance.rocketchip.config.Parameters
-import freechips.rocketchip.rocket.HellaCacheReq
-import freechips.rocketchip.rocket.HellaCacheResp
 import chisel3.experimental.ChiselEnum
+import ee290cdma.{EE290CDMAReaderReq, EE290CDMAReaderResp, EE290CDMAWriterReq}
 
 // Common Interfaces
 
@@ -42,18 +40,21 @@ class DecouplerControllerIO extends Bundle {
   val block_count = Input(UInt(32.W))
 }
 
-class MemoryIO (implicit p: Parameters) extends Bundle {
-  val req = Decoupled(new HellaCacheReq)
-  val resp = Flipped(Valid(new HellaCacheResp))
+class ControllerDMAIO (addrBits: Int, beatBytes: Int)(implicit p: Parameters) extends Bundle {
+  val writeReq       = Decoupled(new EE290CDMAWriterReq(addrBits, beatBytes))
+  val readReq        = Decoupled(new EE290CDMAReaderReq(addrBits, 256))  // Hardcoded due to 256b key and 128b blocks
+  val readResp       = Flipped(Decoupled(new EE290CDMAReaderResp(256)))
+  val readRespQueue  = Flipped(Decoupled(UInt((beatBytes * 8).W)))
+  val busy           = Input(Bool())
 }
 
 object AESState extends ChiselEnum {
-    val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
-  }
+  val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
+}
 
 object MemState extends ChiselEnum {
-    val sIdle, sReadAddr, sRead, sWriteAddr, sWrite = Value
-  }
+  val sIdle, sReadReq, sReadIntoAES, sWriteReq, sWriteIntoMem = Value
+}
 
 // AES address map
 object AESAddr {
