@@ -18,7 +18,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "elaborate the Controller" in {
     //.withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
-    test(new Controller()) { c =>
+    test(new AESController(32, 8)) { c =>
       assert(true)
     }
   }
@@ -33,7 +33,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
     val num_block = 3
     var counter = 0
 
-    test(new Controller()) { c =>
+    test(new AESController(32, 8)) { c =>
       c.io.dmem.req.ready.poke(false.B) // memory always ready
       c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
       c.io.dcplrIO.key_valid.poke(false.B) // decoupler key always valid
@@ -46,7 +46,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.reset.poke(false.B)
 
       /* IDLE */
-      assert(c.io.ctestState.peek.litValue() == AESState.sIdle.litValue())
+      assert(c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
       // start AES process
       assert(c.io.dcplrIO.key_ready.peek.litToBoolean)
       c.io.dcplrIO.key_valid.poke(true.B)
@@ -57,7 +57,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.key_valid.poke(false.B) // load key done, set key_valid false
 
       /* KEY SETUP */
-      assert(c.io.ctestState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert(c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
       c.clock.step(2) // idle for 2 cycles
 
       // wait for memory loading key
@@ -69,7 +69,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         assert (c.io.dmem.req.bits.addr.peek.litValue() == (key_addr.litValue() + 4 * counter))
         c.clock.step()
         // check aes address is correct
-        assert(c.io.ctestState.peek.litValue() == AESState.sKeySetup.litValue())
+        assert(c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
         assert (c.io.aesCoreIO.cs.peek.litToBoolean)
         assert (c.io.aesCoreIO.we.peek.litToBoolean)
         assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.KEY.litValue() + counter)
@@ -90,13 +90,13 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       /* KEY EXPANSION */
-      assert (c.io.ctestState.peek.litValue() == AESState.sKeyExp.litValue()) 
+      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue()) 
       c.clock.step(5) // cycles to expand key
       c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
       c.clock.step()
       
       /* WAIT DATA */
-      assert (c.io.ctestState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
       c.clock.step(2) // idle for 2 cycles
 
       assert (c.io.dcplrIO.addr_ready.peek.litToBoolean)
@@ -106,7 +106,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       /* DATA SETUP */
-      assert (c.io.ctestState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
       assert (!c.io.dcplrIO.addr_ready.peek.litToBoolean)
       
       // wait for memory loading text
@@ -118,7 +118,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         assert (c.io.dmem.req.bits.addr.peek.litValue() == (src_addr + 4 * counter))
         c.clock.step()
         // check aes address is correct
-        assert(c.io.ctestState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert(c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
         assert (c.io.aesCoreIO.cs.peek.litToBoolean)
         assert (c.io.aesCoreIO.we.peek.litToBoolean)
         assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.TEXT.litValue() + counter)
@@ -129,11 +129,11 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dmem.req.ready.poke(false.B) // memory always ready
       c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
       c.clock.step()
-      assert (c.io.mtestState.peek.litValue() == MemState.sIdle.litValue())
+      assert (c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
       c.clock.step()
 
       /* WAIT START */
-      assert (c.io.ctestState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
 
       assert (c.io.dcplrIO.start_ready.peek.litToBoolean)
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -142,7 +142,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       /* AES RUN */
-      assert (c.io.ctestState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
       // set aes start register
       assert (c.io.aesCoreIO.cs.peek.litToBoolean )
       assert (c.io.aesCoreIO.we.peek.litToBoolean )
@@ -153,21 +153,21 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       /* WAIT RESULT */
-      assert (c.io.ctestState.peek.litValue() == AESState.sWaitResult.litValue()) 
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
       c.clock.step(10) // cycles to encrypt/decrypt
       c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
       c.clock.step()
 
       /* DATA WRITE */
-      assert (c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue()) 
-      assert (c.io.mtestState.peek.litValue() == MemState.sWrite.litValue()) 
+      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue()) 
+      assert (c.io.testMState.peek.litValue() == MemState.sWrite.litValue()) 
 
       // wait for memory storing result
       c.io.dmem.req.ready.poke(true.B) // memory always ready
       while (c.io.testCounter.peek.litValue() != 4) {
         // check states
-        assert(c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue())
-        assert(c.io.mtestState.peek.litValue() == MemState.sWrite.litValue())
+        assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert(c.io.testMState.peek.litValue() == MemState.sWrite.litValue())
 
         // check aes address is correct
         assert (c.io.aesCoreIO.cs.peek.litToBoolean)
@@ -176,8 +176,8 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step()
 
         // check states
-        assert(c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue())
-        assert(c.io.mtestState.peek.litValue() == MemState.sWriteAddr.litValue())
+        assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert(c.io.testMState.peek.litValue() == MemState.sWriteAddr.litValue())
         // check memory address is correct
         c.io.aesCoreIO.read_data.poke(counter.asUInt)
         assert (c.io.dmem.req.valid.peek.litToBoolean) 
@@ -187,7 +187,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step()
       }
       c.clock.step(2) // transit from memWrite to memIdle
-      assert(c.io.mtestState.peek.litValue() == MemState.sIdle.litValue())
+      assert(c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
       c.clock.step()
 
       while (c.io.testRemain.peek.litValue() != 0) {
@@ -195,7 +195,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         src_addr = src_addr + 16
         dest_addr = dest_addr + 16
         /* DATA SETUP */
-        assert (c.io.ctestState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
         
         // wait for memory loading text
         c.io.dmem.req.ready.poke(true.B) // memory always ready
@@ -206,7 +206,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
           assert (c.io.dmem.req.bits.addr.peek.litValue() == (src_addr + 4 * counter))
           c.clock.step()
           // check aes address is correct
-          assert(c.io.ctestState.peek.litValue() == AESState.sDataSetup.litValue())
+          assert(c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
           assert (c.io.aesCoreIO.cs.peek.litToBoolean)
           assert (c.io.aesCoreIO.we.peek.litToBoolean)
           assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.TEXT.litValue() + counter)
@@ -217,11 +217,11 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         c.io.dmem.req.ready.poke(false.B) // memory always ready
         c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
         c.clock.step()
-        assert (c.io.mtestState.peek.litValue() == MemState.sIdle.litValue())
+        assert (c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
         c.clock.step()
 
         /* AES RUN */
-        assert (c.io.ctestState.peek.litValue() == AESState.sAESRun.litValue())
+        assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
         // set aes start register
         assert (c.io.aesCoreIO.cs.peek.litToBoolean )
         assert (c.io.aesCoreIO.we.peek.litToBoolean )
@@ -232,21 +232,21 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step()
 
         /* WAIT RESULT */
-        assert (c.io.ctestState.peek.litValue() == AESState.sWaitResult.litValue()) 
+        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
         c.clock.step(10) // cycles to encrypt/decrypt
         c.io.aesCoreIO.read_data.poke(1.U) 
         c.clock.step()
 
         /* DATA WRITE */
-        assert (c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue()) 
-        assert (c.io.mtestState.peek.litValue() == MemState.sWrite.litValue()) 
+        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue()) 
+        assert (c.io.testMState.peek.litValue() == MemState.sWrite.litValue()) 
 
         // wait for memory storing result
         c.io.dmem.req.ready.poke(true.B) // memory always ready
         while (c.io.testCounter.peek.litValue() != 4) {
           // check states
-          assert(c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue())
-          assert(c.io.mtestState.peek.litValue() == MemState.sWrite.litValue())
+          assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+          assert(c.io.testMState.peek.litValue() == MemState.sWrite.litValue())
 
           // check aes address is correct
           assert (c.io.aesCoreIO.cs.peek.litToBoolean)
@@ -255,8 +255,8 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
           c.clock.step()
 
           // check states
-          assert(c.io.ctestState.peek.litValue() == AESState.sDataWrite.litValue())
-          assert(c.io.mtestState.peek.litValue() == MemState.sWriteAddr.litValue())
+          assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+          assert(c.io.testMState.peek.litValue() == MemState.sWriteAddr.litValue())
           // check memory address is correct
           c.io.aesCoreIO.read_data.poke(counter.asUInt)
           assert (c.io.dmem.req.valid.peek.litToBoolean) 
@@ -266,16 +266,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
           c.clock.step()
         }
         c.clock.step(2) // transit from memWrite to memIdle
-        assert(c.io.mtestState.peek.litValue() == MemState.sIdle.litValue())
+        assert(c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
         c.clock.step()
       }
-      assert (c.io.ctestState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
     }
   }
   // To Eric: Here is an example of a test using the drivers/monitors to mimic the HellaCache Interface
   // It does not act like the true cache, but at least we can receive requests and send responses
   it should "test key memory access" in {
-    test(new Controller()) { c =>
+    test(new AESController(32, 8)) { c =>
       // Initializing RoCCCommand driver, receiver (dummy), and monitor
       val driver = new verif.ValidDriver[HellaCacheResp](c.clock, c.io.dmem.resp) // Used to send responses, takes in ValidTX
       val monitor = new DecoupledMonitor[HellaCacheReq](c.clock, c.io.dmem.req) // Used to observe all transactions on this interface
@@ -328,7 +328,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Check state here
       // assert(c.io.state == KEY...)...
-      assert (c.io.ctestState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
 
       // Here we check to see if we got a response. I increment by a fixed number of cycles, but this can be changed
       c.clock.step(10)
