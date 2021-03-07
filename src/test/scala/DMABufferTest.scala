@@ -115,73 +115,73 @@ class DMABufferTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-//  it should "Test DMAOutputBuffer when beatBytes == 4" in {
-//    val beatBytes = 4
-//    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-//      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
-//      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
-//      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
-//
-//      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
-//
-//      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
-//      c.clock.step(inputs.length + 200)
-//
-//      assert(outMonitor.monitoredTransactions.nonEmpty)
-//      assert(outMonitor.monitoredTransactions.size == inputs.size)
-//      outMonitor.monitoredTransactions
-//        .map(x => x.data.litValue())
-//        .zip(inputs)
-//        .foreach {case (o, e) => assert(o == e)}
-//    }
-//  }
-//
-//  it should "Test DMAOutputBuffer when beatBytes == 2 (less than 4)" in {
-//    val beatBytes = 2
-//    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-//      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
-//      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
-//      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
-//
-//      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
-//      val results = inputs.grouped(2).map { case List(x,y) => (y << 16) + x}.toList
-//      println(s"Result size is ${results.size}")
-//
-//      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
-//      c.clock.step(inputs.length + 200)
-//
-//      assert(outMonitor.monitoredTransactions.nonEmpty)
-//      assert(outMonitor.monitoredTransactions.size == results.size)
-//      outMonitor.monitoredTransactions
-//        .map(x => x.data.litValue())
-//        .zip(results)
-//        .foreach {case (o, e) => assert(o == e)}
-//    }
-//  }
-//
-//  it should "Test DMAOutputBuffer when beatBytes == 8 (greater than 4)" in {
-//    val beatBytes = 8
-//    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-//      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
-//      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
-//      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
-//
-//      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
-//      var results = Seq[BigInt]()
-//      for (i <- inputs) {
-//        results = results ++ Seq(i & (BigInt("1" * 32, 2)), i >> 32)
-//      }
-//      println(s"Result size is ${results.size}")
-//
-//      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
-//      c.clock.step(inputs.length * 2 + 200)
-//
-//      assert(outMonitor.monitoredTransactions.nonEmpty)
-//      assert(outMonitor.monitoredTransactions.size == results.size)
-//      outMonitor.monitoredTransactions
-//        .map(x => x.data.litValue())
-//        .zip(results)
-//        .foreach {case (o, e) => assert(o == e)}
-//    }
-//  }
+  it should "Test DMAOutputBuffer when beatBytes == 4" in {
+    val beatBytes = 4
+    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
+      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
+      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
+
+      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
+
+      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+      c.clock.step(inputs.length + 200)
+
+      assert(outMonitor.monitoredTransactions.nonEmpty)
+      assert(outMonitor.monitoredTransactions.size == inputs.size)
+      outMonitor.monitoredTransactions
+        .map(x => x.data.litValue())
+        .zip(inputs)
+        .foreach {case (o, e) => assert(o == e)}
+    }
+  }
+
+  it should "Test DMAOutputBuffer when beatBytes == 2 (less than 4)" in {
+    val beatBytes = 2
+    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
+      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
+      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
+
+      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
+      val results = inputs.grouped(2).map { case List(x,y) => (y << 16) + x}.toList
+      println(s"Result size is ${results.size}")
+
+      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+      c.clock.step(inputs.length + 200)
+
+      assert(outMonitor.monitoredTransactions.nonEmpty)
+      assert(outMonitor.monitoredTransactions.size == results.size)
+      outMonitor.monitoredTransactions
+        .map(x => x.data.litValue())
+        .zip(results)
+        .foreach {case (o, e) => assert(o == e)}
+    }
+  }
+
+  it should "Test DMAOutputBuffer when beatBytes == 8 (greater than 4)" in {
+    val beatBytes = 8
+    test(new DMAOutputBuffer(beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmaInput)
+      val outDriver = new DecoupledDriverSlave(c.clock, c.io.dataOut, 0)
+      val outMonitor = new DecoupledMonitor(c.clock, c.io.dataOut)
+
+      val inputs = Seq.fill(100)(BigInt((beatBytes * 8), scala.util.Random))
+      var results = Seq[BigInt]()
+      for (i <- inputs) {
+        results = results ++ Seq(i & (BigInt("1" * 32, 2)), i >> 32)
+      }
+      println(s"Result size is ${results.size}")
+
+      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+      c.clock.step(inputs.length * 2 + 200)
+
+      assert(outMonitor.monitoredTransactions.nonEmpty)
+      assert(outMonitor.monitoredTransactions.size == results.size)
+      outMonitor.monitoredTransactions
+        .map(x => x.data.litValue())
+        .zip(results)
+        .foreach {case (o, e) => assert(o == e)}
+    }
+  }
 }
