@@ -28,7 +28,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   val io = IO(new AESControllerIO(addrBits, beatBytes))
 
   // Internal Registers
-  val key_size_reg    = RegInit(0.U(32.W))
+  val size_reg    = RegInit(0.U(32.W))
   val key_addr_reg    = RegInit(0.U(32.W))
   val src_addr_reg    = RegInit(0.U(32.W))
   val dest_addr_reg   = RegInit(0.U(32.W))
@@ -39,6 +39,16 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
 
   // Helper Wires
   val addrWire = Wire(UInt(32.W))
+  // enqueue (data + addr)
+  val enqueue_ready = Wire(Bool())
+  val enqueue_valid = Wire (Bool())
+  val enqueue_data = Wire(UInt(32.W))
+  val enqueue_addr = Wire(UInt(32.W))
+  // dequeue (data)
+  val dequeue_ready = Wire(Bool())
+  val dequeue_valid = Wire (Bool())
+  val dequeue_data = Wire(UInt(32.W))
+  //val dequeue_addr = Wire(UInt(32.W))
 
   // States (C - Controller, M - Memory)
   val cState     = RegInit(AESState.sIdle)
@@ -65,6 +75,16 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   io.aesCoreIO.write_data := 0.U
   io.aesCoreIO.address    := 0.U
   io.dcplrIO.interrupt    := false.B
+
+  // Default Queue Signals
+  enqueue_ready := false.B
+  enqueue_valid := false.B
+  enqueue_data := 0.U
+  enqueue_addr := 0.U
+  dequeue_ready := false.B
+  dequeue_valid := false.B
+  dequeue_data := 0.U
+  //dequeue_addr := 0.U
 
   when (cState === AESState.sKeySetup) {
     addrWire := key_addr_reg
@@ -98,10 +118,12 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         key_addr_reg := io.dcplrIO.key_addr
         when (io.dcplrIO.key_size === 0.U) {
           mem_target_reg   := 4.U
-          key_size_reg := 128.U
+          size_reg := 16.U
+          //key_size_reg := 4.U
         } .otherwise {
           mem_target_reg   := 8.U
-          key_size_reg := 256.U
+          size_reg := 32.U
+          //key_size_reg := 8.U
         }
 
         mStateWire := MemState.sReadReq
@@ -143,7 +165,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         // Save SRC and DEST address
         src_addr_reg := io.dcplrIO.src_addr
         dest_addr_reg := io.dcplrIO.dest_addr
-
+        size_reg := 16.U
         mStateWire := MemState.sReadReq
         cStateWire := AESState.sDataSetup
       }
@@ -247,44 +269,47 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       // Send Memory Read Request for Key
       mStateWire := MemState.sReadReq
       io.dmem.readReq.valid := true.B
-      io.dmem.readReq.bits.addr := addrWire
-      io.dmem.readReq.bits.totalBytes := key_size_reg
+      io.dmem.readReq.bits.addr := addrWire + 4.U * counter_reg
+      io.dmem.readReq.bits.totalBytes := size_reg
       when (io.dmem.readReq.ready) {
         mStateWire := MemState.sReadIntoAES
       }
     }
     is (MemState.sReadIntoAES) {
       mStateWire := MemState.sReadIntoAES
-      io.dmem.readRespQueue.ready := true.B
-      when (io.dmem.readRespQueue.fire()) { // When we dequeue
-        io.aesCoreIO.cs := true.B
-        io.aesCoreIO.we := true.B
-        io.aesCoreIO.write_data := io.dmem.readRespQueue.bits
-        when (cState === AESState.sKeySetup) {
-          io.aesCoreIO.address := AESAddr.KEY + counter_reg
-        } .elsewhen (cState === AESState.sDataSetup) {
-          io.aesCoreIO.address := AESAddr.TEXT + counter_reg
-        }
-        counter_reg := counter_reg + 1.U;
-        mStateWire := MemState.sReadReq
-      } .elsewhen (counter_reg === mem_target_reg) {
+      when (counter_reg === mem_target_reg) {
+        // Completed Memory Read
         mStateWire := MemState.sIdle
+      } .otherwise {
+        dequeue_ready := true.B
+        when (dequeue_valid === true.B) { // When we dequeue
+          io.aesCoreIO.cs := true.B
+          io.aesCoreIO.we := true.B
+          io.aesCoreIO.write_data := dequeue_data
+          counter_reg := counter_reg + 1.U;
+        }
+      }
+      when (cState === AESState.sKeySetup) {
+        io.aesCoreIO.address := AESAddr.KEY + counter_reg
+      } .elsewhen (cState === AESState.sDataSetup) {
+        io.aesCoreIO.address := AESAddr.TEXT + counter_reg
       }
     }
     is (MemState.sWriteReq) {
+      mStateWire := MemState.sWriteReq
       when (counter_reg === 4.U(4.W)) {
         // Completed Memory Write
         mStateWire := MemState.sIdle
       } .otherwise {
         // Send Write Request
-        io.dmem.writeReq.valid := true.B
-        io.dmem.writeReq.bits.addr := addrWire + 4.U * counter_reg
-        io.dmem.writeReq.bits.data := io.aesCoreIO.read_data
-        when (io.dmem.writeReq.fire()) {
+        //io.dmem.writeReq.bits.addr := addrWire + 4.U * counter_reg
+        //io.dmem.writeReq.bits.data := io.aesCoreIO.read_data
+        enqueue_valid := true.B
+        enqueue_data := io.aesCoreIO.read_data
+        enqueue_addr := addrWire + 4.U * counter_reg
+        when (enqueue_ready === true.B) {
           mStateWire := MemState.sWriteIntoMem
           counter_reg := counter_reg + 1.U;
-        } .otherwise {
-          mStateWire := MemState.sWriteReq
         }
       }
     }
