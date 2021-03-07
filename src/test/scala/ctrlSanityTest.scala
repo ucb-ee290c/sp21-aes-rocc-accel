@@ -86,12 +86,18 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert (c.io.aesCoreIO.we.peek.litToBoolean )
       assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
       c.clock.step()
+      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
       c.io.aesCoreIO.read_data.poke(0.U) // aes expanding
       c.clock.step()
 
       /* KEY EXPANSION */
       assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue()) 
       c.clock.step(5) // cycles to expand key
+      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
       c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
       c.clock.step()
       
@@ -149,12 +155,18 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
       assert (c.io.aesCoreIO.write_data.peek.litValue == 2)
       c.clock.step()
+      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
       c.io.aesCoreIO.read_data.poke(0.U) // aes expanding
       c.clock.step()
 
       /* WAIT RESULT */
       assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
       c.clock.step(10) // cycles to encrypt/decrypt
+      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
       c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
       c.clock.step()
 
@@ -228,12 +240,18 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
         assert (c.io.aesCoreIO.write_data.peek.litValue == 2)
         c.clock.step()
+        assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+        assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+        assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
         c.io.aesCoreIO.read_data.poke(0.U) 
         c.clock.step()
 
         /* WAIT RESULT */
         assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
         c.clock.step(10) // cycles to encrypt/decrypt
+        assert (c.io.aesCoreIO.cs.peek.litToBoolean )
+        assert (!c.io.aesCoreIO.we.peek.litToBoolean )
+        assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
         c.io.aesCoreIO.read_data.poke(1.U) 
         c.clock.step()
 
