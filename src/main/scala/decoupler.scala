@@ -86,6 +86,11 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
     }
   }
 
+  // When an exception is received (only ignored when io.reset is high)
+  when (io.rocc_excp & ~io.reset) {
+    excp_valid_reg := true.B
+  }
+
   // When register groups "fire" (ready && valid high)
   // Clear all valid when reset
   when ((io.ctrlIO.key_ready & io.ctrlIO.key_valid) | reset_wire) {
@@ -96,6 +101,10 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   }
   when ((io.ctrlIO.start_ready & io.ctrlIO.start_valid) | reset_wire) {
     start_valid_reg := false.B
+  }
+  // Only ignored when io.reset is high
+  when ((io.ctrlIO.excp_ready & io.ctrlIO.excp_valid) | io.reset) {
+    excp_valid_reg := false.B
   }
 
   // When response fires

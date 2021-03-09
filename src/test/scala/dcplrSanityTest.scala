@@ -654,6 +654,14 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(!c.io.ctrlIO.key_valid.peek.litToBoolean)
       assert(!c.io.ctrlIO.addr_valid.peek.litToBoolean)
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.excp_valid.peek.litToBoolean)
+
+      //Testing exception acceptance
+      c.clock.step(r.nextInt(5))
+      c.io.ctrlIO.excp_ready.poke(true.B)
+      c.clock.step()
+      c.io.ctrlIO.excp_ready.poke(false.B)
+      assert(!c.io.ctrlIO.excp_valid.peek.litToBoolean)
       c.clock.step(r.nextInt(10))
 
       c.io.rocc_excp.poke(false.B)
