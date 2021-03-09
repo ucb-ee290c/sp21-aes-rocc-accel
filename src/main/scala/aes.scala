@@ -46,7 +46,7 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
   dma.module.io.write.req <> ctrl.io.dmem.writeReq
   ctrl.io.dmem.readResp <> dma.module.io.read.resp
   ctrl.io.dmem.readRespQueue <> dma.module.io.read.queue
-  ctrl.io.dmem.busy  <> dma.module.io.busy
+  ctrl.io.dmem.busy := dma.module.io.readBusy | dma.module.io.writeBusy
 
   val aesbb = Module(new aes)
   aesbb.io <> ctrl.io.aesCoreIO
