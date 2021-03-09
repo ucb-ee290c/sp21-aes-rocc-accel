@@ -9,6 +9,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.rocket.{HellaCacheReq, HellaCacheResp}
 import verif._
+import ee290cdma.{EE290CDMAWriterReq, EE290CDMAReaderReq}
+import chiseltest.experimental.TestOptionBuilder._
+import chiseltest.internal.WriteVcdAnnotation
 
 import scala.util.Random
 
@@ -23,7 +26,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "test controller state transitions" in {
+  /*it should "test controller state transitions" in {
     implicit val p: Parameters = VerifTestUtils.getVerifParameters()
     val key_addr = 20.U
     val key_size  = 0
@@ -32,280 +35,32 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
     val op_type = true.B
     val num_block = 3
     var counter = 0
-
-    test(new AESController(32, 8)) { c =>
-      c.io.dmem.req.ready.poke(false.B) // memory always ready
-      c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
-      c.io.dcplrIO.key_valid.poke(false.B) // decoupler key always valid
-      c.io.dcplrIO.addr_valid.poke(false.B) // decoupler addr always valid
-      c.io.dcplrIO.start_valid.poke(false.B) // decoupler addr always valid
-      c.io.aesCoreIO.read_data.poke(1.U) // aes ready
-
-      c.io.reset.poke(true.B)
-      c.clock.step() 
-      c.io.reset.poke(false.B)
-
-      /* IDLE */
-      assert(c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
-      // start AES process
-      assert(c.io.dcplrIO.key_ready.peek.litToBoolean)
-      c.io.dcplrIO.key_valid.poke(true.B)
-      c.io.dcplrIO.key_addr.poke(key_addr)
-      c.io.dcplrIO.key_size.poke(key_size.asUInt)
-      c.clock.step() 
-      assert(!c.io.dcplrIO.key_ready.peek.litToBoolean)
-      c.io.dcplrIO.key_valid.poke(false.B) // load key done, set key_valid false
-
-      /* KEY SETUP */
-      assert(c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
-      c.clock.step(2) // idle for 2 cycles
-
-      // wait for memory loading key
-      c.io.dmem.req.ready.poke(true.B) // memory always ready
-      c.io.dmem.resp.valid.poke(true.B) // memory resp always valid
-      while (c.io.testCounter.peek.litValue() != 4 * (key_size + 1)) {
-        assert (c.io.dmem.req.valid.peek.litToBoolean)
-        // check memory address is correct
-        assert (c.io.dmem.req.bits.addr.peek.litValue() == (key_addr.litValue() + 4 * counter))
-        c.clock.step()
-        // check aes address is correct
-        assert(c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean)
-        assert (c.io.aesCoreIO.we.peek.litToBoolean)
-        assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.KEY.litValue() + counter)
-        counter = counter + 1
-        c.clock.step()
-      }
-      counter = 0
-      c.io.dmem.req.ready.poke(false.B)
-      c.io.dmem.resp.valid.poke(false.B)
-      c.clock.step()
-
-      // set key init register
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
-      c.clock.step()
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-      c.io.aesCoreIO.read_data.poke(0.U) // aes expanding
-      c.clock.step()
-
-      /* KEY EXPANSION */
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue()) 
-      c.clock.step(5) // cycles to expand key
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-      c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
-      c.clock.step()
-      
-      /* WAIT DATA */
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
-      c.clock.step(2) // idle for 2 cycles
-
-      assert (c.io.dcplrIO.addr_ready.peek.litToBoolean)
-      c.io.dcplrIO.addr_valid.poke(true.B)
-      c.io.dcplrIO.src_addr.poke(src_addr.asUInt)
-      c.io.dcplrIO.dest_addr.poke(dest_addr.asUInt)
-      c.clock.step()
-
-      /* DATA SETUP */
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
-      assert (!c.io.dcplrIO.addr_ready.peek.litToBoolean)
-      
-      // wait for memory loading text
-      c.io.dmem.req.ready.poke(true.B) // memory always ready
-      c.io.dmem.resp.valid.poke(true.B) // memory resp always valid
-      while (c.io.testCounter.peek.litValue() != 4) {
-        assert (c.io.dmem.req.valid.peek.litToBoolean)
-        // check memory address is correct
-        assert (c.io.dmem.req.bits.addr.peek.litValue() == (src_addr + 4 * counter))
-        c.clock.step()
-        // check aes address is correct
-        assert(c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean)
-        assert (c.io.aesCoreIO.we.peek.litToBoolean)
-        assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.TEXT.litValue() + counter)
-        counter = counter + 1
-        c.clock.step()
-      }
-      counter = 0
-      c.io.dmem.req.ready.poke(false.B) // memory always ready
-      c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
-      c.clock.step()
-      assert (c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
-      c.clock.step()
-
-      /* WAIT START */
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
-
-      assert (c.io.dcplrIO.start_ready.peek.litToBoolean)
-      c.io.dcplrIO.start_valid.poke(true.B)
-      c.io.dcplrIO.op_type.poke(op_type)
-      c.io.dcplrIO.block_count.poke(num_block.asUInt)
-      c.clock.step()
-
-      /* AES RUN */
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
-      // set aes start register
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
-      assert (c.io.aesCoreIO.write_data.peek.litValue == 2)
-      c.clock.step()
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-      c.io.aesCoreIO.read_data.poke(0.U) // aes expanding
-      c.clock.step()
-
-      /* WAIT RESULT */
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
-      c.clock.step(10) // cycles to encrypt/decrypt
-      assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-      assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-      assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-      c.io.aesCoreIO.read_data.poke(1.U) // aes expand done
-      c.clock.step()
-
-      /* DATA WRITE */
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue()) 
-      assert (c.io.testMState.peek.litValue() == MemState.sWrite.litValue()) 
-
-      // wait for memory storing result
-      c.io.dmem.req.ready.poke(true.B) // memory always ready
-      while (c.io.testCounter.peek.litValue() != 4) {
-        // check states
-        assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
-        assert(c.io.testMState.peek.litValue() == MemState.sWrite.litValue())
-
-        // check aes address is correct
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean)
-        assert (!c.io.aesCoreIO.we.peek.litToBoolean)
-        assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.RESULT.litValue() + counter)
-        c.clock.step()
-
-        // check states
-        assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
-        assert(c.io.testMState.peek.litValue() == MemState.sWriteAddr.litValue())
-        // check memory address is correct
-        c.io.aesCoreIO.read_data.poke(counter.asUInt)
-        assert (c.io.dmem.req.valid.peek.litToBoolean) 
-        assert (c.io.dmem.req.bits.addr.peek.litValue() == (dest_addr + 4 * counter))
-        assert (c.io.dmem.req.bits.data.peek.litValue() == counter)
-        counter = counter + 1
-        c.clock.step()
-      }
-      c.clock.step(2) // transit from memWrite to memIdle
-      assert(c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
-      c.clock.step()
-
-      while (c.io.testRemain.peek.litValue() != 0) {
-        counter = 0
-        src_addr = src_addr + 16
-        dest_addr = dest_addr + 16
-        /* DATA SETUP */
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
-        
-        // wait for memory loading text
-        c.io.dmem.req.ready.poke(true.B) // memory always ready
-        c.io.dmem.resp.valid.poke(true.B) // memory resp always valid
-        while (c.io.testCounter.peek.litValue() != 4) {
-          assert (c.io.dmem.req.valid.peek.litToBoolean)
-          // check memory address is correct
-          assert (c.io.dmem.req.bits.addr.peek.litValue() == (src_addr + 4 * counter))
-          c.clock.step()
-          // check aes address is correct
-          assert(c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
-          assert (c.io.aesCoreIO.cs.peek.litToBoolean)
-          assert (c.io.aesCoreIO.we.peek.litToBoolean)
-          assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.TEXT.litValue() + counter)
-          counter = counter + 1
-          c.clock.step()
-        }
-        counter = 0
-        c.io.dmem.req.ready.poke(false.B) // memory always ready
-        c.io.dmem.resp.valid.poke(false.B) // memory resp always valid
-        c.clock.step()
-        assert (c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
-        c.clock.step()
-
-        /* AES RUN */
-        assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
-        // set aes start register
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-        assert (c.io.aesCoreIO.we.peek.litToBoolean )
-        assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.CTRL.litValue())
-        assert (c.io.aesCoreIO.write_data.peek.litValue == 2)
-        c.clock.step()
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-        assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-        assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-        c.io.aesCoreIO.read_data.poke(0.U) 
-        c.clock.step()
-
-        /* WAIT RESULT */
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue()) 
-        c.clock.step(10) // cycles to encrypt/decrypt
-        assert (c.io.aesCoreIO.cs.peek.litToBoolean )
-        assert (!c.io.aesCoreIO.we.peek.litToBoolean )
-        assert (c.io.aesCoreIO.address.peek.litValue == AESAddr.STATUS.litValue())
-        c.io.aesCoreIO.read_data.poke(1.U) 
-        c.clock.step()
-
-        /* DATA WRITE */
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue()) 
-        assert (c.io.testMState.peek.litValue() == MemState.sWrite.litValue()) 
-
-        // wait for memory storing result
-        c.io.dmem.req.ready.poke(true.B) // memory always ready
-        while (c.io.testCounter.peek.litValue() != 4) {
-          // check states
-          assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
-          assert(c.io.testMState.peek.litValue() == MemState.sWrite.litValue())
-
-          // check aes address is correct
-          assert (c.io.aesCoreIO.cs.peek.litToBoolean)
-          assert (!c.io.aesCoreIO.we.peek.litToBoolean)
-          assert (c.io.aesCoreIO.address.peek.litValue() == AESAddr.RESULT.litValue() + counter)
-          c.clock.step()
-
-          // check states
-          assert(c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
-          assert(c.io.testMState.peek.litValue() == MemState.sWriteAddr.litValue())
-          // check memory address is correct
-          c.io.aesCoreIO.read_data.poke(counter.asUInt)
-          assert (c.io.dmem.req.valid.peek.litToBoolean) 
-          assert (c.io.dmem.req.bits.addr.peek.litValue() == (dest_addr + 4 * counter))
-          assert (c.io.dmem.req.bits.data.peek.litValue() == counter)
-          counter = counter + 1
-          c.clock.step()
-        }
-        c.clock.step(2) // transit from memWrite to memIdle
-        assert(c.io.testMState.peek.litValue() == MemState.sIdle.litValue())
-        c.clock.step()
-      }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
-    }
   }
   // To Eric: Here is an example of a test using the drivers/monitors to mimic the HellaCache Interface
-  // It does not act like the true cache, but at least we can receive requests and send responses
-  it should "test key memory access" in {
-    test(new AESController(32, 8)) { c =>
+  // It does not act like the true cache, but at least we can receive requests and send responses*/
+  it should "test DMA interface & State Transitions (beatBytes = 4)" in {
+    val beatBytes = 4
+    test(new AESController(32, beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       // Initializing RoCCCommand driver, receiver (dummy), and monitor
-      val driver = new verif.ValidDriver[HellaCacheResp](c.clock, c.io.dmem.resp) // Used to send responses, takes in ValidTX
-      val monitor = new DecoupledMonitor[HellaCacheReq](c.clock, c.io.dmem.req) // Used to observe all transactions on this interface
-      val receiver = new DecoupledDriverSlave[HellaCacheReq](c.clock, c.io.dmem.req, 0) // Acts as a dummy receiver (does nothing but hold ready high)
-
+      // driver for dma readresp
+      val inDriver = new DecoupledDriverMaster(c.clock, c.io.dmem.readRespQueue)
+      val outAESWriteDataMonitor = new ValidMonitor(c.clock, c.io.testAESWriteData)
+      val outAESReadDataMonitor = new ValidMonitor(c.clock, c.io.testAESReadData)
+      val outAESCtrlMonitor = new ValidMonitor(c.clock, c.io.testAESCtrl)
+      // driver for dma writereq
+      val outWriteReqDriver = new DecoupledDriverSlave[EE290CDMAWriterReq](c.clock, c.io.dmem.writeReq, 0)
+      val outWriteReqMonitor = new DecoupledMonitor[EE290CDMAWriterReq](c.clock, c.io.dmem.writeReq)
+      val outReadReqDriver = new DecoupledDriverSlave[EE290CDMAReaderReq](c.clock, c.io.dmem.readReq, 0)
+      val outReadReqMonitor = new DecoupledMonitor[EE290CDMAReaderReq](c.clock, c.io.dmem.readReq)
       val r = new Random
 
       // Initializing decoupler <> controller interface
       c.io.dcplrIO.excp_valid.poke(false.B)
+
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.dcplrIO.key_size.poke(0.U(1.W))
       c.io.dcplrIO.key_addr.poke(0.U(32.W))
+
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.src_addr.poke(0.U(32.W))
       c.io.dcplrIO.dest_addr.poke(0.U(32.W))
@@ -313,16 +68,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.start_valid.poke(false.B)
       c.io.dcplrIO.op_type.poke(false.B)
       c.io.dcplrIO.block_count.poke(0.U(32.W))
-      c.clock.step()
+      c.clock.step()  
 
       // Reset (just to be safe)
       c.io.reset.poke(true.B)
-      c.clock.step(r.nextInt(10))
+      c.clock.step(r.nextInt(10) + 1)
       c.io.reset.poke(false.B)
       c.clock.step()
 
       // Check state here
-      // assert(c.io.state == IDLE)...
+      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.key_ready.peek.litToBoolean) {
@@ -330,10 +85,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       }
 
       // Triggering key expansion
-      val op_type = r.nextInt(2)
-      val addr = r.nextInt(1 << 32)
+      var key_size = r.nextInt(2)
+      var addr = r.nextInt(1 << 32)
       c.io.dcplrIO.key_valid.poke(true.B)
-      c.io.dcplrIO.key_size.poke(op_type.U(1.W))
+      c.io.dcplrIO.key_size.poke(key_size.U(1.W))
       c.io.dcplrIO.key_addr.poke(addr.U(32.W))
 
       c.clock.step()
@@ -342,42 +97,175 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       }
       c.io.dcplrIO.key_valid.poke(false.B)
       c.clock.step()
+    
+      // check sending aes key exp request
+      // TODO: problem of peek after poke
+      /*assert (!outAESCtrlMonitor.monitoredTransactions.nonEmpty)
+      assert (outAESCtrlMonitor.monitoredTransactions.size == 1)
+      assert (outAESCtrlMonitor.monitoredTransactions(0).data(31, 0).litValue() == 2)
+      assert (outAESCtrlMonitor.monitoredTransactions(0).data(63, 32).litValue() == AESAddr.CONFIG.litValue())
+      outAESCtrlMonitor.clearMonitoredTransactions()*/
       
 
       // Check state here
-      // assert(c.io.state == KEY...)...
       assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
-
-      // Here we check to see if we got a response. I increment by a fixed number of cycles, but this can be changed
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
-      val times = if (op_type == 1) 8 else 4
-      for (i <- 0 until times) {
-        // Check that we actually received a memory request
-        assert(!monitor.monitoredTransactions.isEmpty)
-        val req = monitor.monitoredTransactions.head
-        monitor.clearMonitoredTransactions()
-        assert(req.data.addr.litValue() == addr + 4 * i)
-        // You should do more checks here
+      val times = if (key_size== 1) 8 else 4
+      // Check that DMA  actually received a read request
+      assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
+      var req = outReadReqMonitor.monitoredTransactions.head
+      outReadReqMonitor.clearMonitoredTransactions()
+      assert(req.data.addr.litValue() == addr)
+      assert(req.data.totalBytes.litValue() == times * 4)
 
-        // Send a response
-        val resp_data = r.nextInt(2 << 32)
-        val resp = hellaCacheResp(resp_data)
-        driver.push(ValidTX(resp))
-        c.clock.step(r.nextInt(10) + 10) // This will vary, but for now, between 10-20 cycles
+      assert(c.io.testMState.peek.litValue() == MemState.sReadIntoAES.litValue())
+      // Send responses
+      var inputs = Seq.fill(times * 4 / beatBytes)(BigInt((beatBytes * 8), scala.util.Random))
+      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+      c.clock.step(inputs.length + 200 )
 
-        // Now you check if the data is correctly presented to the AES Core
-        // TODO: To Eric, fill this out as an exercise
+      // Now you check if the data is correctly presented to the AES Core
+      assert(outAESWriteDataMonitor.monitoredTransactions.nonEmpty)
+      assert(outAESWriteDataMonitor.monitoredTransactions.size == times)
+
+      outAESWriteDataMonitor.monitoredTransactions
+        .map(x => x.data)
+        .zipWithIndex
+        .foreach {case (o, i) => {
+          assert (o(31,0).litValue() == inputs(i))
+          assert (o(63,32).litValue() == AESAddr.KEY.litValue() + times - 1 - i)
+        }}
+      outAESWriteDataMonitor.clearMonitoredTransactions()
+      c.clock.step(r.nextInt(10) + 1)
+
+      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      c.io.aesCoreIO.read_data.poke(0.U)
+      c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
+      c.io.aesCoreIO.read_data.poke(1.U)
+      c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
+
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      // Triggering text loading
+      val src_addr = r.nextInt(1 << 32)
+      val dest_addr = r.nextInt(1 << 32)
+      c.io.dcplrIO.addr_valid.poke(true.B)
+      c.io.dcplrIO.src_addr.poke(src_addr.U(32.W))
+      c.io.dcplrIO.dest_addr.poke(dest_addr.U(32.W))
+
+      c.clock.step()
+      while (c.io.dcplrIO.addr_ready.peek.litToBoolean) {
+        c.clock.step()
       }
+      c.io.dcplrIO.addr_valid.poke(false.B)
+      c.clock.step()
 
-      c.clock.step(r.nextInt(100)) // Random, you can tweak this
+      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      c.clock.step(10)
 
-      // Check that there are no extra requests
-      assert(monitor.monitoredTransactions.isEmpty)
+      assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
+      req = outReadReqMonitor.monitoredTransactions.head
+      outReadReqMonitor.clearMonitoredTransactions()
+      assert(req.data.addr.litValue() == src_addr)
+      assert(req.data.totalBytes.litValue() == 4 * 4)
 
-      // To Eric: This is an example of a test with correct behavior. But what if something goes wrong? (e.g. data returns
-      // another data response? What is the correct FSM behavior?) You should write a few other tests. I will help you along the way.
+      assert(c.io.testMState.peek.litValue() == MemState.sReadIntoAES.litValue())
+      // Send responses
+      inputs = Seq.fill(4 * 4 / beatBytes)(BigInt((beatBytes * 8), scala.util.Random))
+      inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+      c.clock.step(inputs.length + 200 )
+
+      // Now you check if the data is correctly presented to the AES Core
+      assert(outAESWriteDataMonitor.monitoredTransactions.nonEmpty)
+      assert(outAESWriteDataMonitor.monitoredTransactions.size == 4)
+
+      outAESWriteDataMonitor.monitoredTransactions
+        .map(x => x.data)
+        .zipWithIndex
+        .foreach {case (o, i) => {
+          assert (o(31,0).litValue() == inputs(i))
+          assert (o(63,32).litValue() == AESAddr.TEXT.litValue() + 4 - 1 - i)
+        }}
+      outAESWriteDataMonitor.clearMonitoredTransactions()
+      c.clock.step(50)
+
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      var op_type = r.nextInt(2)
+      var block_count = r.nextInt(4) + 1
+      c.io.dcplrIO.start_valid.poke(true.B)
+      c.io.dcplrIO.block_count.poke(block_count.U(32.W))
+      c.io.dcplrIO.op_type.poke(op_type.B)
+
+      c.clock.step()
+      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
+        c.clock.step()
+      }
+      c.io.dcplrIO.start_valid.poke(false.B)
+      c.clock.step()
+
+      c.clock.step(10)
+      // check send aes enc/dec request
+      assert (outAESCtrlMonitor.monitoredTransactions.nonEmpty)
+      assert (outAESCtrlMonitor.monitoredTransactions.size == 1)
+      assert (outAESCtrlMonitor.monitoredTransactions(0).data(31, 0).litValue() == 2)
+      assert (outAESCtrlMonitor.monitoredTransactions(0).data(63, 32).litValue() == AESAddr.CTRL.litValue())
+      outAESCtrlMonitor.clearMonitoredTransactions()
+
+      c.io.aesCoreIO.read_data.poke(0.U)
+      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
+      c.io.aesCoreIO.read_data.poke(1.U)
+      c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
+
+      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      c.clock.step(100) // Random, you can tweak this
+      for (i <- 1 until block_count) {
+        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
+        assert(outReadReqMonitor.monitoredTransactions.size == 1)
+        var req = outReadReqMonitor.monitoredTransactions.head
+        outReadReqMonitor.clearMonitoredTransactions()
+        assert(req.data.addr.litValue() == src_addr + 16 * i)
+        assert(req.data.totalBytes.litValue() == 4 * 4)
+
+        inputs = Seq.fill(4 * 4 / beatBytes)(BigInt((beatBytes * 8), scala.util.Random))
+        inDriver.push(inputs.map(x => new DecoupledTX(UInt((beatBytes * 8).W)).tx(x.U)))
+        c.clock.step(inputs.length + 200 )
+        assert(outAESWriteDataMonitor.monitoredTransactions.nonEmpty)
+        assert(outAESWriteDataMonitor.monitoredTransactions.size == 4)
+
+        outAESWriteDataMonitor.monitoredTransactions
+          .map(x => x.data)
+          .zipWithIndex
+          .foreach {case (o, i) => {
+            assert (o(31,0).litValue() == inputs(i))
+            assert (o(63,32).litValue() == AESAddr.TEXT.litValue() + 4 - 1 - i)
+          }}
+        outAESWriteDataMonitor.clearMonitoredTransactions()
+        // check if controller send AES next request
+        assert(outAESCtrlMonitor.monitoredTransactions.nonEmpty)
+        assert(outAESCtrlMonitor.monitoredTransactions.size == 1)
+        assert (outAESCtrlMonitor.monitoredTransactions(0).data(31, 0).litValue() == 2)
+        assert (outAESCtrlMonitor.monitoredTransactions(0).data(63, 32).litValue() == AESAddr.CTRL.litValue())
+        outAESCtrlMonitor.clearMonitoredTransactions()
+        c.clock.step(r.nextInt(10) + 1)
+
+        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        c.io.aesCoreIO.read_data.poke(0.U)
+        c.clock.step(100) // Random, you can tweak this
+        c.io.aesCoreIO.read_data.poke(1.U)
+        c.clock.step()
+        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        c.clock.step(100) // Random, you can tweak this
+      }
+      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      // check that we received the correct nunmber of data write
+      assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
+      assert(outWriteReqMonitor.monitoredTransactions.size == 4 * block_count)
+      assert(outAESReadDataMonitor.monitoredTransactions.nonEmpty)
+      assert(outAESReadDataMonitor.monitoredTransactions.size == 5 * block_count)
     }
   }
 }
