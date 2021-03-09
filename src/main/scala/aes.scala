@@ -8,6 +8,7 @@ import ee290cdma.EE290CDMA
 import freechips.rocketchip.tile.{BuildRoCC, HasCoreParameters, LazyRoCC, LazyRoCCModuleImp, OpcodeSet}
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.SystemBusKey
+import freechips.rocketchip.tilelink.TLNode
 
 // Blackbox (Class name must match top-level verilog file)
 class aes(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
@@ -24,6 +25,7 @@ class aes(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
 
 class AESAccel(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opcodes = opcodes, nPTWPorts = 0) {
   override lazy val module = new AESAccelImp(this)
+  override val tlNode = module.dma.id_node
 }
 
 class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModuleImp(outer) with HasCoreParameters {
