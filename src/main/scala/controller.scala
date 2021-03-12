@@ -40,18 +40,20 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   val blks_remain_reg = RegInit(0.U(32.W))
   val ready_check_reg = RegInit(false.B)
 
-  // Helper Wires
-  val addrWire = Wire(UInt(32.W))
-  // enqueue (data + addr)
-  val enqueue_ready = Wire(Bool())
-  val enqueue_data = Wire(UInt(32.W))
-  val enqueue_addr = Wire(UInt(addrBits.W))
 
   // States (C - Controller, M - Memory)
   val cState     = RegInit(AESState.sIdle)
   val cStateWire = WireDefault(cState)
   val mState      = RegInit(MemState.sIdle)
   val mStateWire = WireDefault(mState)
+
+  // Helper Wires
+  val addrWire = Wire(UInt(32.W))
+  val data_wr_done = mState === MemState.sIdle
+  val data_ld_done = mState === MemState.sIdle
+  // enqueue (data + addr)
+  val enqueue_data = Wire(UInt(32.W))
+  val enqueue_addr = Wire(UInt(addrBits.W))
 
   // Default DecouplerIO Signals
   io.dcplrIO.key_ready   := false.B
@@ -78,11 +80,11 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   dequeue.io.dataOut.ready := mState === MemState.sReadIntoAES
   dequeue.io.dmaInput <> io.dmem.readRespQueue
 
-  enqueue_data := 0.U
   enqueue_addr := 0.U
   val enqueue = Module(new DMAInputBuffer(addrBits, beatBytes))
-  enqueue_ready := enqueue.io.dataIn.ready 
   enqueue.io.dataIn.valid := false.B
+  enqueue_data := io.aesCoreIO.read_data
+  enqueue_addr := addrWire + 4.U * counter_reg
   enqueue.io.dataIn.bits := enqueue_addr ## enqueue_data
   io.dmem.writeReq <> enqueue.io.dmaOutput
 
@@ -152,7 +154,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
     is (AESState.sKeySetup) {
       // wait data loading from memory
       cStateWire := AESState.sKeySetup;
-      when (mState === MemState.sIdle) {
+      when (data_ld_done) {
         // Start the Key Expansion Process
         io.aesCoreIO.cs := true.B
         io.aesCoreIO.we := true.B
@@ -192,14 +194,14 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
     }
     is (AESState.sDataSetup) {
       when (blks_remain_reg === 0.U) { // First block
-        when (mState === MemState.sIdle) {
+        when (data_ld_done) {
           // When memory has finished loading, wait for green light
           cStateWire := AESState.sWaitStart
         } .otherwise {
           cStateWire := AESState.sDataSetup
         }
       } .otherwise {
-        when (mState === MemState.sIdle) {
+        when (data_ld_done) {
           // When memory has finish loading, straight to processing
           cStateWire := AESState.sAESRun
         } .otherwise {
@@ -259,7 +261,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         cStateWire := AESState.sDataWrite
         // TODO: remote test signals
         io.testAESReadData.valid := true.B
-      } .elsewhen (mState === MemState.sIdle) {
+      } .elsewhen (data_wr_done) {
         when (blks_remain_reg > 0.U) {
           // Return to DataSetup state to read in next block
           src_addr_reg := src_addr_reg + 16.U
@@ -335,9 +337,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         //io.dmem.writeReq.bits.addr := addrWire + 4.U * counter_reg
         //io.dmem.writeReq.bits.data := io.aesCoreIO.read_data
         enqueue.io.dataIn.valid := true.B
-        enqueue_data := io.aesCoreIO.read_data
-        enqueue_addr := addrWire + 4.U * counter_reg
-        when (enqueue_ready === true.B) {
+        when (enqueue.io.dataIn.ready === true.B) {
           mStateWire := MemState.sWriteIntoMem
           counter_reg := counter_reg + 1.U;
         }
