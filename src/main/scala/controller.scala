@@ -22,10 +22,13 @@ class AESControllerIO(addrBits: Int, beatBytes: Int)(implicit p: Parameters) ext
   val testAESCtrl = Valid(UInt(64.W))
   val testRemain  = Output(UInt(32.W))
   val testCounter = Output(UInt(32.W))
-  val setCState   = Input(UInt(4.W))
-  val setCValid   = Input(Bool())
   val testCState  = Output(UInt(4.W))
   val testMState  = Output(UInt(3.W))
+
+  val setCState   = Input(UInt(4.W))
+  val setCValid   = Input(Bool())
+  val setMState   = Input(UInt(3.W))
+  val setMValid   = Input(Bool())
 }
 
 class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) extends Module { val io = IO(new AESControllerIO(addrBits, beatBytes))
@@ -96,8 +99,12 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   io.testAESWriteData.valid := false.B
   io.testAESWriteData.bits := 0.U
 
-  io.testAESReadData.valid := false.B
-  io.testAESReadData.bits := 0.U
+  val testAESReadData_valid = RegInit(false.B)
+  val testAESReadData_bits = RegInit(0.U(64.W))
+  testAESReadData_valid := false.B
+  testAESReadData_bits := 0.U
+  io.testAESReadData.valid := testAESReadData_valid
+  io.testAESReadData.bits := testAESReadData_bits
 
   io.testAESCtrl.valid := false.B
   io.testAESCtrl.bits := 0.U
@@ -116,6 +123,10 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   // Separate state FSM w/ reset
   when (io.reset | io.dcplrIO.excp_valid) {
     cState := AESState.sIdle
+    blks_remain_reg := 0.U
+    counter_reg := 0.U
+  } .elsewhen (io.setCValid) {
+    cState := AESState(io.setCState)
   } .otherwise {
     cState := cStateWire
   }
@@ -131,9 +142,6 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.address := AESAddr.CONFIG
         io.aesCoreIO.write_data := io.dcplrIO.key_size << 1.U
         
-        // TODO: remove test signals
-        // io.testAESCtrl.valid := true.B
-        // io.testAESCtrl.bits := (AESAddr.CONFIG << 32) + io.dcplrIO.key_size << 1.U
 
         // set memory addr and start memory read
         key_addr_reg := io.dcplrIO.key_addr
@@ -169,6 +177,9 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       io.aesCoreIO.cs := 1.U
       io.aesCoreIO.address := AESAddr.STATUS
       cStateWire := AESState.sKeyExp
+      // TODO: remove test signals
+      io.testAESCtrl.valid := true.B
+      io.testAESCtrl.bits := (AESAddr.STATUS << 32) + 0.U
       when(io.aesCoreIO.read_data(0) === ready_check_reg) {
         when (ready_check_reg === false.B) {
           ready_check_reg := true.B
@@ -225,7 +236,6 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       }
     }
     is (AESState.sAESRun) {
-      cStateWire := AESState.sAESRun
       // Start the ENC/DEC process
       io.aesCoreIO.cs := true.B
       io.aesCoreIO.we := true.B
@@ -259,8 +269,6 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.cs := 1.U
         io.aesCoreIO.address := AESAddr.RESULT + 3.U - counter_reg
         cStateWire := AESState.sDataWrite
-        // TODO: remote test signals
-        io.testAESReadData.valid := true.B
       } .elsewhen (data_wr_done) {
         when (blks_remain_reg > 0.U) {
           // Return to DataSetup state to read in next block
@@ -283,6 +291,8 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   // Separate state FSM w/ reset
   when (io.reset | io.dcplrIO.excp_valid) {
     mState := MemState.sIdle
+  } .elsewhen (io.setMValid) {
+    mState := MemState(io.setMState)
   } .otherwise {
     mState := mStateWire
   }
@@ -338,6 +348,9 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         //io.dmem.writeReq.bits.data := io.aesCoreIO.read_data
         enqueue.io.dataIn.valid := true.B
         when (enqueue.io.dataIn.ready === true.B) {
+          // TODO: remote test signals
+          testAESReadData_valid := true.B
+          testAESReadData_bits := io.aesCoreIO.read_data
           mStateWire := MemState.sWriteIntoMem
           counter_reg := counter_reg + 1.U;
         }
