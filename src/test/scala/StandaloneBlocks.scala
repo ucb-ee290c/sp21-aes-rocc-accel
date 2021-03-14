@@ -62,41 +62,22 @@ object AESDefaultTLParams {
     ))
 }
 
-class DMATLRAMStandaloneBlock(implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
-  val mPortParams = AESDefaultTLParams.master()
-  val sPortParams = AESDefaultTLParams.slave
-  val bParams= TLBundleParameters(mPortParams, sPortParams)
-
-  // NOTE: Hardcoded address set for now
-  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
-  val xbar = LazyModule(new TLXbar)
-  val dma  = LazyModule(new EE290CDMA(sPortParams.beatBytes, 256, "TLRAMDMA Test"))
-
-  // Test IO for debug/initializing TLRAM
-  val ioInNode = BundleBridgeSource(() => TLBundle(bParams))
-  val test_in = InModuleBody { ioInNode.makeIO() }
-  // IO for DMA
-  val dma_in = InModuleBody{ dma.module.io }
-
-  ram.node := TLBuffer() := xbar.node
-  xbar.node := dma.id_node
-  xbar.node := BundleBridgeToTL(mPortParams) := ioInNode
-
-  lazy val module = new LazyModuleImp(this) {}
-}
-
-class AESAccelTLRAMStandaloneBlock(implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
+class AESAccelStandaloneBlock(implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
   val mPortParams = AESDefaultTLParams.master()
   val sPortParams = AESDefaultTLParams.slave
   val bParams = TLBundleParameters(mPortParams, sPortParams)
 
-  // NOTE: Hardcoded address set for now
-  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
-  val xbar = LazyModule(new TLXbar)
+  // AES Accelerator
   val aes = LazyModule(new AESAccel(OpcodeSet.custom0))
-  xbar.node := aes.module.dma.id_node
-  // IO For decoupler
-  val roccio = InModuleBody{ aes.module.io }
 
-  lazy val module = new LazyModuleImp(this) {}
+  // IO for DMA
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val to_mem = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode := TLToBundleBridge(sPortParams) := aes.tlNode
+
+  lazy val module = new LazyModuleImp(this) {
+    val io = IO(chiselTypeOf(aes.module.io))
+    io <> aes.module.io
+  }
 }
