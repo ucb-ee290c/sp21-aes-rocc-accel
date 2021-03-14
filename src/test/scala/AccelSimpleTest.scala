@@ -13,10 +13,10 @@ import verif._
 
 class AccelSimpleTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters(xLen = 32) // Testing for our 32b RISC-V chip
-  val dut = LazyModule(new AESAccelStandaloneBlock)
 
   // Elaborate to see if anything broke
   it should "elaborate the accelerator" in {
+    val dut = LazyModule(new AESAccelStandaloneBlock)
     // Requires verilator backend! (For verilog blackbox files)
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       assert(true)
@@ -24,6 +24,7 @@ class AccelSimpleTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "Test 128b AES Encryption" in {
+    val dut = LazyModule(new AESAccelStandaloneBlock)
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       // RoCCCommand driver + RoCCResponse receiver
       val driver = new DecoupledDriverMaster[RoCCCommand](c.clock, c.io.cmd)

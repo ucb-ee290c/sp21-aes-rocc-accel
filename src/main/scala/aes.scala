@@ -50,6 +50,8 @@ class AESAccelImp(outer: AESAccel)(implicit p: Parameters) extends LazyRoCCModul
   // Test signals (tie to zero)
   ctrl.io.setCValid := false.B
   ctrl.io.setCState := 0.U
+  ctrl.io.setMValid := false.B
+  ctrl.io.setMState := 0.U
 
   // DMA Connections
   outer.dma.module.io.read.req <> ctrl.io.dmem.readReq
