@@ -35,19 +35,14 @@ class AccelSimpleTest extends AnyFlatSpec with ChiselScalatestTester {
       val receiver = new DecoupledDriverSlave[RoCCResponse](c.clock, c.io.resp, 0)
 
       // Manually writing key + text into memory, TODO convert into helper function
+      println(s"Wordsize (bits) ${dut.to_mem.params.dataBits}")
       val keyAddr = 0x00
       val inputAddr = 0x10
       val outputAddr = 0x20
       // NOTE: WordAddr is Addr/word size
       val initMem:Map[WordAddr, BigInt] = Map (
-        0x0.toLong -> BigInt(0x09cf4f3c), // Writing Key (key from example Secwork AES testbench)
-        0x1.toLong -> BigInt(0xabf71588),
-        0x2.toLong -> BigInt(0x28aed2a6),
-        0x3.toLong -> BigInt(0x2b7e1516),
-        0x4.toLong -> BigInt(0x7393172a), // Writing plaintext (plaintext from example Secwork AES testbench)
-        0x5.toLong -> BigInt(0xe93d7e11),
-        0x6.toLong -> BigInt(0x2e409f96),
-        0x7.toLong -> BigInt(0x6bc1bee2)
+        0x0.toLong -> BigInt("2b7e151628aed2a6abf7158809cf4f3c", 16), // Writing Key (key from example Secwork AES testbench)
+        0x1.toLong -> BigInt("6bc1bee22e409f96e93d7e117393172a", 16) // Writing plaintext (plaintext from example Secwork AES testbench)
       )
 
       // Mock Memory

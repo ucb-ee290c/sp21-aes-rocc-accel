@@ -330,7 +330,8 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       }
       // TODO: how does key/text lay out across the memory?
       when (cState === AESState.sKeySetup) {
-        io.aesCoreIO.address := AESAddr.KEY + mem_target_reg - 1.U  - counter_reg
+//        io.aesCoreIO.address := AESAddr.KEY + mem_target_reg - 1.U  - counter_reg
+        io.aesCoreIO.address := AESAddr.KEY + 7.U  - counter_reg
         io.testAESWriteData.bits := ((AESAddr.KEY + mem_target_reg - 1.U  - counter_reg) << 32) + dequeue.io.dataOut.bits
       } .elsewhen (cState === AESState.sDataSetup) {
         io.aesCoreIO.address := AESAddr.TEXT + 3.U - counter_reg
