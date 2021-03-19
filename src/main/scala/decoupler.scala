@@ -67,11 +67,11 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
       dest_addr_reg  := rs2_data
     } .elsewhen ((funct === 3.U(7.W)) & ~start_valid_reg) {
       start_valid_reg := true.B
-      op_type_reg     := 0.U(1.W)
+      op_type_reg     := 1.U(1.W)
       block_count_reg := rs1_data
     } .elsewhen ((funct === 4.U(7.W)) & ~start_valid_reg) {
       start_valid_reg := true.B
-      op_type_reg     := 1.U(1.W)
+      op_type_reg     := 0.U(1.W)
       block_count_reg := rs1_data
     } .elsewhen ((funct === 5.U(7.W)) & ~resp_valid_reg) {
       resp_rd_reg    := rd
