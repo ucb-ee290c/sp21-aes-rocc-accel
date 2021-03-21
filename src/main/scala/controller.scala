@@ -55,7 +55,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   val data_wr_done = mState === MemState.sIdle
   val data_ld_done = mState === MemState.sIdle
   // enqueue (data + addr)
-  val enqueue_data = Wire(UInt(32.W))
+  val enqueue_data = Reg(UInt(32.W))
   val enqueue_addr = Wire(UInt(addrBits.W))
 
   // Default DecouplerIO Signals
