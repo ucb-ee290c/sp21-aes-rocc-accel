@@ -54,9 +54,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   val addrWire = Wire(UInt(32.W))
   val data_wr_done = mState === MemState.sIdle
   val data_ld_done = mState === MemState.sIdle
-  // enqueue (data + addr)
   val enqueue_data = Reg(UInt(32.W))
-  val enqueue_addr = Wire(UInt(addrBits.W))
 
   // Default DecouplerIO Signals
   io.dcplrIO.key_ready   := false.B
@@ -83,12 +81,12 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   dequeue.io.dataOut.ready := mState === MemState.sReadIntoAES
   dequeue.io.dmaInput <> io.dmem.readRespQueue
 
-  enqueue_addr := 0.U
   val enqueue = Module(new DMAInputBuffer(addrBits, beatBytes))
   enqueue.io.dataIn.valid := false.B
   enqueue_data := io.aesCoreIO.read_data
-  enqueue_addr := addrWire + 4.U * counter_reg
-  enqueue.io.dataIn.bits := enqueue_addr ## enqueue_data
+  enqueue.io.baseAddr.bits := addrWire
+  enqueue.io.baseAddr.valid := (mState === MemState.sWriteReq) & (counter_reg === 0.U)
+  enqueue.io.dataIn.bits := enqueue_data
   io.dmem.writeReq <> enqueue.io.dmaOutput
 
   // Set testing signals (temporary)
