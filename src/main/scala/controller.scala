@@ -34,8 +34,9 @@ class AESControllerIO(addrBits: Int, beatBytes: Int)(implicit p: Parameters) ext
 class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) extends Module { val io = IO(new AESControllerIO(addrBits, beatBytes))
 
   // Internal Registers
-  val size_reg    = RegInit(0.U(32.W))
+  val size_reg        = RegInit(0.U(32.W))
   val key_addr_reg    = RegInit(0.U(32.W))
+  val key_size_reg    = RegInit(0.U(1.W))
   val src_addr_reg    = RegInit(0.U(32.W))
   val dest_addr_reg   = RegInit(0.U(32.W))
   val counter_reg     = RegInit(0.U(4.W))
@@ -47,7 +48,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   // States (C - Controller, M - Memory)
   val cState     = RegInit(AESState.sIdle)
   val cStateWire = WireDefault(cState)
-  val mState      = RegInit(MemState.sIdle)
+  val mState     = RegInit(MemState.sIdle)
   val mStateWire = WireDefault(mState)
 
   // Helper Wires
@@ -139,18 +140,16 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.cs := true.B
         io.aesCoreIO.address := AESAddr.CONFIG
         io.aesCoreIO.write_data := io.dcplrIO.key_size << 1.U
-        
+        key_size_reg := io.dcplrIO.key_size
 
         // set memory addr and start memory read
         key_addr_reg := io.dcplrIO.key_addr
         when (io.dcplrIO.key_size === 0.U) {
           mem_target_reg   := 4.U
           size_reg := 16.U
-          //key_size_reg := 4.U
         } .otherwise {
           mem_target_reg   := 8.U
           size_reg := 32.U
-          //key_size_reg := 8.U
         }
 
         mStateWire := MemState.sReadReq
@@ -226,7 +225,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.cs := true.B
         io.aesCoreIO.we := true.B
         io.aesCoreIO.address := AESAddr.CONFIG
-        io.aesCoreIO.write_data := io.dcplrIO.op_type
+        io.aesCoreIO.write_data := io.dcplrIO.op_type | (key_size_reg << 1.U)
 
         // set number of blocks
         blks_remain_reg := io.dcplrIO.block_count
@@ -342,8 +341,6 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         mStateWire := MemState.sIdle
       } .otherwise {
         // Send Write Request
-        //io.dmem.writeReq.bits.addr := addrWire + 4.U * counter_reg
-        //io.dmem.writeReq.bits.data := io.aesCoreIO.read_data
         enqueue.io.dataIn.valid := true.B
         when (enqueue.io.dataIn.ready === true.B) {
           // TODO: remote test signals
