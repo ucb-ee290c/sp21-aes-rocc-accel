@@ -8,9 +8,9 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verif.VerifTestUtils
 
-class AESAccelStandaloneBlock(implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
+class AESAccelStandaloneBlock(beatBytes: Int)(implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
   val mPortParams = VerifTestUtils.getVerifTLMasterPortParameters()
-  val sPortParams = VerifTestUtils.getVerifTLSlavePortParameters()
+  val sPortParams = VerifTestUtils.getVerifTLSlavePortParameters(beatBytes = beatBytes)
   val bParams = TLBundleParameters(mPortParams, sPortParams)
 
   // AES Accelerator
