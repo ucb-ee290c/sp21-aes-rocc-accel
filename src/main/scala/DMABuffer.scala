@@ -57,6 +57,8 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
 }
 
 // Outputs data from DMA in 32bit chunks (for AES core)
+// WARNING: Assumes that beatBytes is at most 16 (anything greater will require us to mask/truncate input data)
+//          Currently a safe assumption as our 32b RISC-V core will have beatBytes = 4
 class DMAOutputBuffer (beatBytes: Int) extends Module {
   val io = IO(new Bundle {
     val dmaInput  = Flipped(Decoupled(UInt((beatBytes*8).W)))

@@ -1,6 +1,5 @@
 package aes
 
-import aes.AESTestUtils.hellaCacheResp
 import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
