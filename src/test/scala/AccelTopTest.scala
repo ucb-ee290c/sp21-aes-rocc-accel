@@ -21,8 +21,9 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters(xLen = 32, beatBytes = beatBytes) // Testing for our 32b RISC-V chip
   val r = new scala.util.Random
 
-  def testAccelerator(dut: AESAccelStandaloneBlock, clock: Clock, keySize: Int, encrypt: Boolean, rounds: Int): Boolean = {
-    assert(keySize == 128 || keySize == 256, s"KeySize must be 128 OR 256. Given: $keySize")
+  def testAccelerator(dut: AESAccelStandaloneBlock, clock: Clock, keySize: Int, encdec: Int, rounds: Int): Boolean = {
+    assert(keySize == 128 || keySize == 256 || keySize == -1, s"KeySize must be 128, 256, or -1 (random). Given: $keySize")
+    assert(encdec == 0 || encdec == 1 || encdec == -1, s"ENCDEC must be 1 (encrypt), 0 (decrypt), or -1 (random). Given: $encdec")
 
     // RoCCCommand driver + RoCCResponse receiver
     val driver = new DecoupledDriverMaster[RoCCCommand](clock, dut.module.io.cmd)
@@ -38,18 +39,27 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
     var cycleCount = 0
     var blocksProcessed = 0
     var allPass = true
+    var actualKeySize = 128
+    var encrypt = true
 
     for (i <- 0 until rounds) {
       // Output: (1: keyAddr, 2: keyData (256b post-padded), 3: srcAddr, 4: textData, 5: destAddr, 6: memState)
       val destructive = r.nextBoolean()
-      val stim = genAESStim(keySize, r.nextInt(10) + 1, destructive = destructive, beatBytes, r)
+      if (keySize == -1) actualKeySize = if (r.nextBoolean()) 128 else 256
+      else actualKeySize = keySize
+      if (encdec == -1) encrypt = r.nextBoolean()
+      else encrypt = encdec == 1
+
+      val stim = genAESStim(actualKeySize, r.nextInt(10) + 1, destructive = destructive, beatBytes, r)
       slaveModel.state = stim._6
 
 //      // Debug Printing
+//      println(s"Debug key size: $actualKeySize")
+//      println(s"Debug encdec: $encrypt")
 //      println(s"Debug: $stim")
 
       var inputCmd = Seq[DecoupledTX[RoCCCommand]]()
-      if (keySize == 128) inputCmd = inputCmd :+ txProto.tx(keyLoad128(stim._1 + 16))
+      if (actualKeySize == 128) inputCmd = inputCmd :+ txProto.tx(keyLoad128(stim._1 + 16))
       else inputCmd = inputCmd :+ txProto.tx(keyLoad256(stim._1))
       inputCmd = inputCmd :+ txProto.tx(addrLoad(stim._3, stim._5))
       if (encrypt) inputCmd = inputCmd :+ txProto.tx(encBlock(stim._4.length))
@@ -65,7 +75,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
         cycleCount += 1
       }
 
-      allPass &= checkResult(keySize, stim._2, stim._4, stim._5, encrypt = encrypt, slaveModel.state, beatBytes)
+      allPass &= checkResult(actualKeySize, stim._2, stim._4, stim._5, encrypt = encrypt, slaveModel.state, beatBytes)
 
       blocksProcessed += stim._4.length
     }
@@ -89,7 +99,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 128b AES Encryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, 128, encrypt = true, 20)
+      val result = testAccelerator(dut, c.clock, 128, encdec = 1, 20)
       assert(result)
     }
   }
@@ -97,7 +107,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 128b AES Decryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, 128, encrypt = false, 20)
+      val result = testAccelerator(dut, c.clock, 128, encdec = -1, 20)
       assert(result)
     }
   }
@@ -105,7 +115,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 256b AES Encryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, 256, encrypt = true, 20)
+      val result = testAccelerator(dut, c.clock, 256, encdec = 1, 20)
       assert(result)
     }
   }
@@ -113,7 +123,15 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 256b AES Decryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, 256, encrypt = false, 20)
+      val result = testAccelerator(dut, c.clock, 256, encdec = -1, 20)
+      assert(result)
+    }
+  }
+
+  it should "Test Mixed 128/256 AES Encryption/Decryption" in {
+    val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      val result = testAccelerator(dut, c.clock, -1, encdec = -1, 20)
       assert(result)
     }
   }
