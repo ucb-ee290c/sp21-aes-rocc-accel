@@ -137,9 +137,8 @@ package object AESTestUtils {
 
     val cipher: Cipher = Cipher.getInstance("AES/ECB/NoPadding")
     // Properly format key
-    var keyBArr = key.toByteArray.reverse.padTo(keySize/8, 0.toByte).reverse
-    if (keyBArr(0) == 0.toByte) keyBArr = keyBArr.take((keySize/8) + 1).takeRight(keySize/8)
-    else keyBArr = keyBArr.take(keySize/8)
+    val fmtKey = if (keySize == 128) key >> 128 else key
+    val keyBArr = fmtKey.toByteArray.reverse.padTo(keySize/8, 0.toByte).reverse.takeRight(keySize/8)
     if (encrypt) {
       cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(keyBArr, "AES"))
     } else {
