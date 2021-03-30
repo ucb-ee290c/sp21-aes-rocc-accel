@@ -136,7 +136,10 @@ package object AESTestUtils {
     assert(keySize == 128 || keySize == 256, s"KeySize must be 128 OR 256. Given: $keySize")
 
     val cipher: Cipher = Cipher.getInstance("AES/ECB/NoPadding")
-    val keyBArr = key.toByteArray.reverse.padTo(keySize/8, 0.toByte).reverse.takeRight(keySize/8)
+    // Properly format key
+    var keyBArr = key.toByteArray.reverse.padTo(keySize/8, 0.toByte).reverse
+    if (keyBArr(0) == 0.toByte) keyBArr = keyBArr.take((keySize/8) + 1).takeRight(keySize/8)
+    else keyBArr = keyBArr.take(keySize/8)
     if (encrypt) {
       cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(keyBArr, "AES"))
     } else {

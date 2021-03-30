@@ -59,7 +59,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
 //      println(s"Debug: $stim")
 
       var inputCmd = Seq[DecoupledTX[RoCCCommand]]()
-      if (actualKeySize == 128) inputCmd = inputCmd :+ txProto.tx(keyLoad128(stim._1 + 16))
+      if (actualKeySize == 128) inputCmd = inputCmd :+ txProto.tx(keyLoad128(stim._1))
       else inputCmd = inputCmd :+ txProto.tx(keyLoad256(stim._1))
       inputCmd = inputCmd :+ txProto.tx(addrLoad(stim._3, stim._5))
       if (encrypt) inputCmd = inputCmd :+ txProto.tx(encBlock(stim._4.length))
