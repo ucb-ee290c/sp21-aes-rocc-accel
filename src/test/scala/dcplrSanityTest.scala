@@ -241,12 +241,12 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
       c.clock.step(r.nextInt(100))
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
       // Asserting key ready. Expect valid to go low next cycle
       c.io.ctrlIO.start_ready.poke(true.B)
       c.clock.step()
@@ -265,7 +265,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       // Valid should be high for only ONE cycle
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
       c.clock.step()
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -284,12 +284,12 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
       c.clock.step(r.nextInt(100))
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
       // Asserting key ready. Expect valid to go low next cycle
       c.io.ctrlIO.start_ready.poke(true.B)
       c.clock.step()
@@ -308,7 +308,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       // Valid should be high for only ONE cycle
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
       assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
-      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
       c.clock.step()
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -670,6 +670,127 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(!c.io.ctrlIO.key_valid.peek.litToBoolean)
       assert(!c.io.ctrlIO.addr_valid.peek.litToBoolean)
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+    }
+  }
+
+  it should "sanity check decoupler output enc/dec with interrupt enable signal" in {
+    test(new RoCCDecoupler()) { c =>
+      // Initializing RoCCCommand driver
+      val driver = new DecoupledDriverMaster[RoCCCommand](c.clock, c.io.rocc_cmd)
+      val txProto = new DecoupledTX(new RoCCCommand())
+
+      // Initialize random generator (for cycle count)
+      val r = new Random
+
+      // Initialize signals
+      c.io.reset.poke(false.B)
+      c.io.rocc_excp.poke(false.B)
+      c.io.ctrlIO.interrupt.poke(false.B)
+      c.io.ctrlIO.busy.poke(false.B)
+      c.io.ctrlIO.excp_ready.poke(false.B)
+      c.io.ctrlIO.key_ready.poke(false.B)
+      c.io.ctrlIO.addr_ready.poke(false.B)
+      c.io.ctrlIO.start_ready.poke(false.B)
+      c.clock.step()
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      c.clock.step(r.nextInt(100))
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      // Checking when key ready is low
+      var blocks = r.nextInt(2 << 32)
+      // enable interrupt signals
+      driver.push(txProto.tx(encBlock(blocks, 1)))
+      c.clock.step(2) // 1 cycle for driver, 1 cycle for decoupler (total 2)
+
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 1)
+      c.clock.step(r.nextInt(100))
+
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 1)
+      // Asserting key ready. Expect valid to go low next cycle
+      c.io.ctrlIO.start_ready.poke(true.B)
+      c.clock.step()
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      c.clock.step(r.nextInt(100))
+
+      // Valid should still be low
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      // NOTE: KEY READY SHOULD STILL BE HIGH
+      // Checking behavior when when key ready is already high
+      blocks = r.nextInt(2 << 32)
+      // disable interrupt signal
+      driver.push(txProto.tx(encBlock(blocks, 0)))
+      c.clock.step(2)
+
+      // Valid should be high for only ONE cycle
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 1)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 0)
+      c.clock.step()
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      c.clock.step(r.nextInt(100))
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+
+      c.io.ctrlIO.start_ready.poke(false.B)
+      c.clock.step(r.nextInt(100))
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      // Repeating for decryption
+      blocks = r.nextInt(2 << 32)
+      // enable interrupt signal
+      driver.push(txProto.tx(decBlock(blocks, 1)))
+      c.clock.step(2)
+
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 1)
+      c.clock.step(r.nextInt(100))
+
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 1)
+      // Asserting key ready. Expect valid to go low next cycle
+      c.io.ctrlIO.start_ready.poke(true.B)
+      c.clock.step()
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      c.clock.step(r.nextInt(100))
+
+      // Valid should still be low
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      // NOTE: KEY READY SHOULD STILL BE HIGH
+      // Checking behavior when when key ready is already high
+      blocks = r.nextInt(2 << 32)
+      // disable interrupt signal
+      driver.push(txProto.tx(decBlock(blocks, 0)))
+      c.clock.step(2)
+
+      // Valid should be high for only ONE cycle
+      assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
+      assert(c.io.ctrlIO.block_count.peek.litValue() == blocks)
+      assert(c.io.ctrlIO.op_type.peek.litValue() == 0)
+      assert(c.io.ctrlIO.intrpt_en.peek.litValue() == 0)
+      c.clock.step()
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+      c.clock.step(r.nextInt(100))
+
+      assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
+
+      c.io.ctrlIO.start_ready.poke(false.B)
+      c.clock.step(r.nextInt(100))
     }
   }
 }
