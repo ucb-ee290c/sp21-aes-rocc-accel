@@ -42,6 +42,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   val counter_reg     = RegInit(0.U(4.W))
   val mem_target_reg  = RegInit(0.U(4.W))
   val blks_remain_reg = RegInit(0.U(32.W))
+  val intrpt_en_reg   = RegInit(false.B)
   val ready_check_reg = RegInit(false.B)
 
 
@@ -123,6 +124,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   when (io.reset | io.dcplrIO.excp_valid) {
     cState := AESState.sIdle
     blks_remain_reg := 0.U
+    intrpt_en_reg := false.B
     counter_reg := 0.U
   } .elsewhen (io.setCValid) {
     cState := AESState(io.setCState)
@@ -133,6 +135,8 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   switch (cState) {
     is (AESState.sIdle) {
       io.dcplrIO.key_ready := true.B
+      // wait for directly start signal
+      io.dcplrIO.start_ready := true.B
 
       when (io.dcplrIO.key_valid) {
         // configure AES key length
@@ -154,6 +158,19 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
 
         mStateWire := MemState.sReadReq
         cStateWire := AESState.sKeySetup
+      } .elsewhen (io.dcplrIO.addr_valid) {
+        // Wait for SRC and DEST address to arrive
+        cStateWire := AESState.sWaitData
+        io.dcplrIO.addr_ready := true.B
+        when (io.dcplrIO.addr_valid) {
+          // Save SRC and DEST address
+          src_addr_reg := io.dcplrIO.src_addr
+          dest_addr_reg := io.dcplrIO.dest_addr
+          size_reg := 16.U
+          mStateWire := MemState.sReadReq
+          cStateWire := AESState.sDataSetup
+          mem_target_reg := 4.U
+        }
       }
     }
     is (AESState.sKeySetup) {
@@ -227,8 +244,9 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.address := AESAddr.CONFIG
         io.aesCoreIO.write_data := io.dcplrIO.op_type | (key_size_reg << 1.U)
 
-        // set number of blocks
+        // set number of blocks & interrupt enable
         blks_remain_reg := io.dcplrIO.block_count
+        intrpt_en_reg := io.dcplrIO.intrpt_en
         cStateWire := AESState.sAESRun
       }
     }
@@ -276,7 +294,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
           cStateWire := AESState.sDataSetup
         } .otherwise {
           // Completed Encryption/Decryption, Raise Interrupt
-          io.dcplrIO.interrupt := true.B
+          io.dcplrIO.interrupt := intrpt_en_reg
           cStateWire := AESState.sIdle
         }
       } .otherwise {

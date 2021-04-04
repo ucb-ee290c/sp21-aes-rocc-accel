@@ -38,6 +38,7 @@ class DecouplerControllerIO extends Bundle {
   val start_valid = Input(Bool())
   val op_type     = Input(Bool())
   val block_count = Input(UInt(32.W))
+  val intrpt_en   = Input(Bool())
 }
 
 class ControllerDMAIO (addrBits: Int, beatBytes: Int)(implicit p: Parameters) extends Bundle {

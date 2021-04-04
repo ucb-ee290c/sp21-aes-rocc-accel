@@ -33,6 +33,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   val start_valid_reg = RegInit(false.B)
   val op_type_reg     = RegInit(0.U(1.W))
   val block_count_reg = RegInit(0.U(32.W))
+  val intrpt_en_reg   = RegInit(0.U(1.W))
   val resp_rd_reg     = RegInit(0.U(5.W))
   val resp_data_reg   = RegInit(0.U(32.W))
   val resp_valid_reg  = RegInit(false.B)
@@ -69,10 +70,12 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
       start_valid_reg := true.B
       op_type_reg     := 1.U(1.W)
       block_count_reg := rs1_data
+      intrpt_en_reg   := rs2_data(0)
     } .elsewhen ((funct === 4.U(7.W)) & ~start_valid_reg) {
       start_valid_reg := true.B
       op_type_reg     := 0.U(1.W)
       block_count_reg := rs1_data
+      intrpt_en_reg   := rs2_data(0)
     } .elsewhen ((funct === 5.U(7.W)) & ~resp_valid_reg) {
       resp_rd_reg    := rd
       resp_data_reg  := busy
@@ -124,6 +127,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   io.ctrlIO.start_valid := start_valid_reg
   io.ctrlIO.op_type     := op_type_reg
   io.ctrlIO.block_count := block_count_reg
+  io.ctrlIO.intrpt_en   := intrpt_en_reg
 
   reset_wire    := io.rocc_excp | io.reset
   funct         := io.rocc_cmd.bits.inst.funct
