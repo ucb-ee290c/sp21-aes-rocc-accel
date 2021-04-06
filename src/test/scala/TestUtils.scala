@@ -12,19 +12,19 @@ import scala.util.Random
 
 package object AESTestUtils {
   // Helper methods for creating a RoCCCommand
-  def keyLoad128(addr: BigInt)(implicit p: Parameters): RoCCCommand = RoCCCommandHelper(inst = RoCCInstructionHelper(xs1 = true.B), rs1 = addr.U)
-  def keyLoad256(addr: BigInt)(implicit p: Parameters): RoCCCommand = RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 1.U, xs1 = true.B), rs1 = addr.U)
-  def addrLoad(src: BigInt, dest: BigInt)(implicit p: Parameters): RoCCCommand = RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 2.U, xs1 = true.B, xs2 = true.B),
-    rs1 = src.U, rs2 = dest.U)
-  def encBlock(count: Int)(implicit p: Parameters): RoCCCommand = RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 3.U, xs1 = true.B), rs1 = count.U)
-  def decBlock(count: Int)(implicit p: Parameters): RoCCCommand = RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 4.U, xs1 = true.B), rs1 = count.U)
+  def keyLoad128(addr: BigInt)(implicit p: Parameters): RoCCCommand =
+    RoCCCommandHelper(inst = RoCCInstructionHelper(xs1 = true.B), rs1 = addr.U)
+  def keyLoad256(addr: BigInt)(implicit p: Parameters): RoCCCommand =
+    RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 1.U, xs1 = true.B), rs1 = addr.U)
+  def addrLoad(src: BigInt, dest: BigInt)(implicit p: Parameters): RoCCCommand =
+    RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 2.U, xs1 = true.B, xs2 = true.B), rs1 = src.U, rs2 = dest.U)
+  def encBlock(count: Int, interrupt_en: Int)(implicit p: Parameters): RoCCCommand =
+    RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 3.U, xs1 = true.B, xs2 = true.B), rs1 = count.U, rs2 = interrupt_en.U)
+  def decBlock(count: Int, interrupt_en: Int)(implicit p: Parameters): RoCCCommand =
+    RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 4.U, xs1 = true.B, xs2 = true.B), rs1 = count.U, rs2 = interrupt_en.U)
   def getStatus(rd: Int)(implicit p: Parameters): RoCCCommand = {
     assert(rd < 32, s"RD register must be less than 32. Given: $rd")
     RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 5.U, xd = true.B, rd = rd.U))
-  }
-  def getInterrupt(rd: Int)(implicit p: Parameters): RoCCCommand = {
-    assert(rd < 32, s"RD register must be less than 32. Given: $rd")
-    RoCCCommandHelper(inst = RoCCInstructionHelper(funct = 6.U, xd = true.B, rd = rd.U))
   }
 
   // Generates random (but legal) addresses for key, source text, dest text
@@ -55,7 +55,7 @@ package object AESTestUtils {
   // Assumes all addresses are legal (beatBytes aligned)
   // Assumes keyData is 256 bits, and textData is 128 bits per block
   def getTLMemModelState(keyAddr: BigInt, keyData: BigInt, textAddr: BigInt, textData: Seq[BigInt], beatBytes: Int): State = {
-    // TODO Update function when beatBytes can be anything other than 16
+    assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
     var initMem: Map[WordAddr, BigInt] = Map ()
     val keyWordAddr = keyAddr / beatBytes
@@ -74,7 +74,6 @@ package object AESTestUtils {
   // Generates random stimulus for AES Accelerator
   // (keyAddr: BigInt, keyData (256b post-padded): BigInt, srcAddr: BigInt, textData: Seq[BigInt], destAddr: BigInt, memState: TLMemModel.State)
   def genAESStim(keySize: Int, textBlocks: Int, destructive: Boolean, beatBytes: Int, r: Random): (BigInt, BigInt, BigInt, Seq[BigInt], BigInt, State) = {
-    // Temporary assert
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
     // Generate Addresses
@@ -108,18 +107,20 @@ package object AESTestUtils {
   // Conditional if last block of result data has been written
   // InitData should be 0 unless destructive
   def finishedWriting(state: State, destAddr: BigInt, txtBlocks: Int, initData: BigInt, beatBytes: Int): Boolean = {
-    // Assumes that beatBytes is at most 16 (or else need to mask/shift for correct data)
+    assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
+
     read(state.mem, (destAddr/beatBytes + txtBlocks*(16/beatBytes) - 1).toLong, beatBytes, -1) != initData
   }
 
   // Checks if output matches standard AES library (ECB)
   def checkResult(keySize: Int, key: BigInt, srcData: Seq[BigInt], dstAddr: BigInt, encrypt: Boolean, state: State, beatBytes: Int): Boolean = {
+    assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
+
     val cipher = AESECBCipher(keySize, key, encrypt)
     val results = srcData.map(x => BigInt(Array(0.toByte) ++ cipher.doFinal(x.toByteArray.reverse.padTo(16, 0.toByte).reverse.takeRight(16))))
 
     var matched = true
     for (i <- results.indices) {
-      // TODO Change when beatBytes != 16
       val actual = read(state.mem, (dstAddr/beatBytes + i).toLong, beatBytes, -1)
       if (actual != results(i)) {
         println(s"Match failed for block $i. Expected: ${results(i).toString(16).toUpperCase()} " +

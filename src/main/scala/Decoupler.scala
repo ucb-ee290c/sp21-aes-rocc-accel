@@ -1,7 +1,7 @@
 package aes
 
 import chisel3._
-import chisel3.util.{Decoupled, Queue}
+import chisel3.util.Decoupled
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.tile.RoCCCommand
 import freechips.rocketchip.tile.RoCCResponse
@@ -33,6 +33,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   val start_valid_reg = RegInit(false.B)
   val op_type_reg     = RegInit(0.U(1.W))
   val block_count_reg = RegInit(0.U(32.W))
+  val intrpt_en_reg   = RegInit(0.U(1.W))
   val resp_rd_reg     = RegInit(0.U(5.W))
   val resp_data_reg   = RegInit(0.U(32.W))
   val resp_valid_reg  = RegInit(false.B)
@@ -53,35 +54,31 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   // Unwrapping RoCCCommands
   // Does nothing when reset
   when (io.rocc_cmd.fire & ~reset_wire) {
-    when (funct === 0.U(7.W)) {
+    when (funct === AESISA.KEYSETUP128 & ~key_valid_reg) {
       key_valid_reg := true.B
       key_size_reg  := 0.U
       key_addr_reg  := rs1_data
-    } .elsewhen ((funct === 1.U(7.W)) & ~key_valid_reg) { // Cannot overwrite valid (edgecase where ctrl reads at same time)
+    } .elsewhen (funct === AESISA.KEYSETUP256 & ~key_valid_reg) { // Cannot overwrite valid (edgecase where ctrl reads at same time)
       key_valid_reg := true.B
       key_size_reg  := 1.U
       key_addr_reg  := rs1_data
-    } .elsewhen ((funct === 2.U(7.W)) & ~addr_valid_reg) {
+    } .elsewhen (funct === AESISA.ADDRESSLOAD & ~addr_valid_reg) {
       addr_valid_reg := true.B
       src_addr_reg   := rs1_data
       dest_addr_reg  := rs2_data
-    } .elsewhen ((funct === 3.U(7.W)) & ~start_valid_reg) {
+    } .elsewhen (funct === AESISA.ENCRYPTBLOCKS & ~start_valid_reg) {
       start_valid_reg := true.B
       op_type_reg     := 1.U(1.W)
       block_count_reg := rs1_data
-    } .elsewhen ((funct === 4.U(7.W)) & ~start_valid_reg) {
+      intrpt_en_reg   := rs2_data(0)
+    } .elsewhen (funct === AESISA.DECRYPTBLOCKS & ~start_valid_reg) {
       start_valid_reg := true.B
       op_type_reg     := 0.U(1.W)
       block_count_reg := rs1_data
-    } .elsewhen ((funct === 5.U(7.W)) & ~resp_valid_reg) {
+      intrpt_en_reg   := rs2_data(0)
+    } .elsewhen (funct === AESISA.QUERYSTATUS & ~resp_valid_reg) {
       resp_rd_reg    := rd
       resp_data_reg  := busy
-      resp_valid_reg := true.B
-    } .elsewhen ((funct === 6.U(7.W)) & ~resp_valid_reg) {
-      resp_rd_reg    := rd
-      resp_data_reg  := 1.U(32.W)
-      // Note: currently accelerator only has 1 interrupt (when enc/dec ends)
-      // !!! ASSUMES THAT CPU WILL ONLY QUERY INTERRUPT STATUS AFTER OBSERVING AN INTERRUPT
       resp_valid_reg := true.B
     }
   }
@@ -124,6 +121,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   io.ctrlIO.start_valid := start_valid_reg
   io.ctrlIO.op_type     := op_type_reg
   io.ctrlIO.block_count := block_count_reg
+  io.ctrlIO.intrpt_en   := intrpt_en_reg
 
   reset_wire    := io.rocc_excp | io.reset
   funct         := io.rocc_cmd.bits.inst.funct
