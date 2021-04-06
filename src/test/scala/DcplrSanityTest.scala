@@ -14,7 +14,7 @@ import scala.util.Random
 Tests that verify basic functionality of the decoupler.
  */
 
-class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
+class DcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters(xLen = 32) // Testing for our 32b RISC-V chip
 
 

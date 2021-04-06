@@ -3,10 +3,7 @@ package aes
 import chisel3._
 import chisel3.util.Decoupled
 import chipsalliance.rocketchip.config.Parameters
-import chisel3.experimental.ChiselEnum
 import ee290cdma.{EE290CDMAReaderReq, EE290CDMAReaderResp, EE290CDMAWriterReq}
-
-// Common Interfaces
 
 class AESCoreIO extends Bundle {
   val clk        = Input(Clock())
@@ -47,22 +44,4 @@ class ControllerDMAIO (addrBits: Int, beatBytes: Int)(implicit p: Parameters) ex
   val readResp       = Flipped(Decoupled(new EE290CDMAReaderResp(256)))
   val readRespQueue  = Flipped(Decoupled(UInt((beatBytes * 8).W)))
   val busy           = Input(Bool())
-}
-
-object AESState extends ChiselEnum {
-  val sIdle, sKeySetup, sKeyExp, sWaitData, sDataSetup, sWaitStart, sAESRun, sWaitResult, sDataWrite = Value
-}
-
-object MemState extends ChiselEnum {
-  val sIdle, sReadReq, sReadIntoAES, sWriteReq, sWriteIntoMem = Value
-}
-
-// AES address map
-object AESAddr {
-  val CTRL = 8.U(8.W)
-  val STATUS = 9.U(8.W)
-  val CONFIG = 10.U(8.W)
-  val KEY = 16.U(8.W)
-  val TEXT = 32.U(8.W)
-  val RESULT = 48.U(8.W)
 }

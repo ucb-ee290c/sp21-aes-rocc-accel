@@ -3,12 +3,10 @@ package aes
 import chisel3._
 import chisel3.util.HasBlackBoxResource
 import chipsalliance.rocketchip.config.Parameters
-import chipsalliance.rocketchip.config.Config
 import ee290cdma.EE290CDMA
-import freechips.rocketchip.tile.{BuildRoCC, HasCoreParameters, LazyRoCC, LazyRoCCModuleImp, OpcodeSet}
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
+import freechips.rocketchip.tile.{HasCoreParameters, LazyRoCC, LazyRoCCModuleImp, OpcodeSet}
+import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.SystemBusKey
-import freechips.rocketchip.tilelink.TLNode
 
 // Blackbox (Class name must match top-level verilog file)
 class aes(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {

@@ -15,7 +15,7 @@ import chiseltest.internal.WriteVcdAnnotation
 import scala.util.Random
 
 
-class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
+class CtrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters(xLen = 32) // 32-bit processor
 
   it should "elaborate the controller" in {
@@ -39,45 +39,45 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.reset.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitData
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitData.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitData.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
 
       c.io.dcplrIO.addr_valid.poke(true.B)
       c.io.reset.poke(true.B)
       c.clock.step()
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.reset.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitStart
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitStart.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitStart.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
 
       c.io.dcplrIO.start_valid.poke(true.B)
       c.io.reset.poke(true.B)
       c.clock.step()
       c.io.dcplrIO.start_valid.poke(false.B)
       c.io.reset.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitResult
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitResult.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitResult.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
 
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step()
@@ -86,23 +86,23 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
       c.io.aesCoreIO.read_data.poke(0.U)
       c.io.reset.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in DataWrite & write not done
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sDataWrite.litValue().U)
+      c.io.setCState.poke(CtrlState.sDataWrite.litValue().U)
       c.io.setMValid.poke(true.B)
       c.io.setMState.poke(MemState.sWriteIntoMem.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
       c.io.setMValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
 
       c.io.reset.poke(true.B)
       c.clock.step()
       c.io.reset.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
       
       // test when memory state is in ReadReq
@@ -145,10 +145,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       val r = new Random
       c.io.aesCoreIO.read_data.poke(1.U)
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitStart.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitStart.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       
       var block_count = r.nextInt(10) + 1
       var intrpt_en = 1
@@ -158,16 +158,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.intrpt_en.poke(intrpt_en.B)
       c.clock.step()
       c.io.dcplrIO.start_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(10) + 1)
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.io.dmem.writeReq.ready.poke(true.B)
       while (c.io.testMState.peek.litValue() != MemState.sIdle.litValue()) {
         c.clock.step()
@@ -177,16 +177,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       for (i <- 1 until block_count) {
         assert (!c.io.dcplrIO.interrupt.peek.litToBoolean)
         c.clock.step()
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         c.clock.step(r.nextInt(5) + 20)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(r.nextInt(10) + 1)
         c.io.aesCoreIO.read_data.poke(1.U)
         c.clock.step()
 
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.io.dmem.writeReq.ready.poke(true.B)
         while (c.io.testMState.peek.litValue() != MemState.sIdle.litValue()) {
           c.clock.step()
@@ -198,10 +198,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
 
       c.io.aesCoreIO.read_data.poke(1.U)
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitStart.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitStart.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
 
       block_count = r.nextInt(10) + 1
       intrpt_en = 0
@@ -211,10 +211,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.intrpt_en.poke(intrpt_en.B)
       c.clock.step()
       c.io.dcplrIO.start_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(10) + 1)
     }
@@ -234,45 +234,45 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.dcplrIO.excp_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitData
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitData.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitData.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
 
       c.io.dcplrIO.addr_valid.poke(true.B)
       c.io.dcplrIO.excp_valid.poke(true.B)
       c.clock.step()
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.excp_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitStart
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitStart.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitStart.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
 
       c.io.dcplrIO.start_valid.poke(true.B)
       c.io.dcplrIO.excp_valid.poke(true.B)
       c.clock.step()
       c.io.dcplrIO.start_valid.poke(false.B)
       c.io.dcplrIO.excp_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in WaitResult
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitResult.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitResult.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
 
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step()
@@ -281,23 +281,23 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
       c.io.aesCoreIO.read_data.poke(0.U)
       c.io.dcplrIO.excp_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
 
       // test when state is in DataWrite & write not done
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sDataWrite.litValue().U)
+      c.io.setCState.poke(CtrlState.sDataWrite.litValue().U)
       c.io.setMValid.poke(true.B)
       c.io.setMState.poke(MemState.sWriteIntoMem.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
       c.io.setMValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
 
       c.io.dcplrIO.excp_valid.poke(true.B)
       c.clock.step()
       c.io.dcplrIO.excp_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       c.clock.step()
       
       // test when memory state is in ReadReq
@@ -350,15 +350,15 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.start_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       c.clock.step()
 
       // test when state is in WaitData
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitData.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitData.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
 
       c.io.dcplrIO.key_valid.poke(true.B)
       c.io.dcplrIO.addr_valid.poke(true.B)
@@ -367,15 +367,15 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.start_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step()
 
       // test when state is in WaitStart
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitStart.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitStart.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
 
       c.io.dcplrIO.key_valid.poke(true.B)
       c.io.dcplrIO.addr_valid.poke(true.B)
@@ -384,7 +384,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.key_valid.poke(false.B)
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.io.dcplrIO.start_valid.poke(false.B)
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       c.clock.step()
     }
   }
@@ -425,7 +425,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
     
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       assert (c.io.testMState.peek.litValue() != MemState.sIdle.litValue())
       c.clock.step(10)
 
@@ -458,7 +458,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(r.nextInt(10) + 1)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeyExp.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
@@ -473,7 +473,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         }}
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
     }
   }
 
@@ -490,11 +490,11 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       val outReadReqMonitor = new DecoupledMonitor[EE290CDMAReaderReq](c.clock, c.io.dmem.readReq)
       val r = new Random
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitData.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitData.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       val src_addr = r.nextInt(1 << 32)
       val dest_addr = r.nextInt(1 << 32)
@@ -509,7 +509,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(outReadReqMonitor.monitoredTransactions.nonEmpty)
@@ -538,7 +538,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
     }
   }
 
@@ -555,11 +555,11 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       val outReadReqMonitor = new DecoupledMonitor[EE290CDMAReaderReq](c.clock, c.io.dmem.readReq)
       val r = new Random
       c.io.setCValid.poke(true.B)
-      c.io.setCState.poke(AESState.sWaitData.litValue().U)
+      c.io.setCState.poke(CtrlState.sWaitData.litValue().U)
       c.clock.step()
       c.io.setCValid.poke(false.B)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       val src_addr = r.nextInt(1 << 32)
       val dest_addr = r.nextInt(1 << 32)
@@ -574,7 +574,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(outReadReqMonitor.monitoredTransactions.nonEmpty)
@@ -603,7 +603,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(5) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -628,11 +628,11 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step() // Random, you can tweak this
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       var counter = 0
       val results = Seq.fill(4)(BigInt((4 * 8), scala.util.Random))
       while (counter != 4) {
@@ -645,8 +645,8 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         }
       }
       c.clock.step(10)
-      if (block_count == 1) assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
-      else assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      if (block_count == 1) assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
+      else assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       assert(outAESReadDataMonitor.monitoredTransactions.nonEmpty)
       assert(outAESReadDataMonitor.monitoredTransactions.size == 4)
 
@@ -699,7 +699,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.key_ready.peek.litToBoolean) {
@@ -730,7 +730,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
@@ -762,14 +762,14 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(r.nextInt(10) + 1)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeyExp.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       val src_addr = r.nextInt(1 << 32)
       val dest_addr = r.nextInt(1 << 32)
@@ -784,7 +784,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -813,7 +813,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -821,7 +821,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -837,7 +837,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(1) // Random, you can tweak this
@@ -845,10 +845,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -878,17 +878,17 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we get the correct write req
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 4 * block_count)
@@ -944,7 +944,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.key_ready.peek.litToBoolean) {
@@ -975,7 +975,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
@@ -1008,14 +1008,14 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(r.nextInt(10) + 1)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeyExp.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       val src_addr = r.nextInt(1 << 32)
       val dest_addr = r.nextInt(1 << 32)
@@ -1030,7 +1030,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -1060,7 +1060,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -1068,7 +1068,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -1084,16 +1084,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -1124,16 +1124,16 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we received the correct nunmber of data write
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 4 * 4 / beatBytes * block_count)
@@ -1181,7 +1181,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.key_ready.peek.litToBoolean) {
@@ -1212,7 +1212,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
@@ -1248,14 +1248,14 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(r.nextInt(10) + 1)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeyExp.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       val src_addr = r.nextInt(1 << 32)
       val dest_addr = r.nextInt(1 << 32)
@@ -1270,7 +1270,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -1303,7 +1303,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -1311,7 +1311,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -1327,7 +1327,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(1) // Random, you can tweak this
@@ -1335,10 +1335,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.aesCoreIO.read_data.poke(100.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -1372,17 +1372,17 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we get the correct write req
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 2 * block_count)
@@ -1437,7 +1437,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.start_ready.peek.litToBoolean) {
@@ -1458,7 +1458,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -1487,7 +1487,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -1495,7 +1495,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -1511,7 +1511,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(1) // Random, you can tweak this
@@ -1519,10 +1519,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -1552,17 +1552,17 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we get the correct write req
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 4 * block_count)
@@ -1616,7 +1616,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step()
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
 
       // This is not necessary since the FSM should be in IDLE (from above assert), but it works as an example
       while (!c.io.dcplrIO.key_ready.peek.litToBoolean) {
@@ -1647,7 +1647,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       
 
       // Check state here
-      assert (c.io.testCState.peek.litValue() == AESState.sKeySetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeySetup.litValue())
       c.clock.step(10)
 
       // 4 or 8 times depending on key size
@@ -1679,14 +1679,14 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(r.nextInt(10) + 1)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sKeyExp.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sKeyExp.litValue())
       c.io.aesCoreIO.read_data.poke(0.U)
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitData.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitData.litValue())
       // Triggering text loading
       var src_addr = r.nextInt(1 << 32)
       var dest_addr = r.nextInt(1 << 32)
@@ -1701,7 +1701,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -1730,7 +1730,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       var op_type = r.nextInt(2)
       var block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -1738,7 +1738,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -1754,7 +1754,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(1) // Random, you can tweak this
@@ -1762,10 +1762,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -1795,17 +1795,17 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we get the correct write req
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 4 * block_count)
@@ -1841,7 +1841,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.addr_valid.poke(false.B)
       c.clock.step()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
       c.clock.step(10)
 
       assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
@@ -1870,7 +1870,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESWriteDataMonitor.clearMonitoredTransactions()
       c.clock.step(50)
 
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitStart.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitStart.litValue())
       op_type = r.nextInt(2)
       block_count = r.nextInt(4) + 1
       c.io.dcplrIO.start_valid.poke(true.B)
@@ -1878,7 +1878,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.dcplrIO.op_type.poke(op_type.B)
 
       c.clock.step()
-      assert (c.io.testCState.peek.litValue() == AESState.sAESRun.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sAESRun.litValue())
       while (c.io.dcplrIO.start_ready.peek.litToBoolean) {
         c.clock.step()
       }
@@ -1894,7 +1894,7 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       outAESCtrlMonitor.clearMonitoredTransactions()
 
       c.io.aesCoreIO.read_data.poke(0.U)
-      assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
       c.clock.step(r.nextInt(100) + 1) // Random, you can tweak this
       c.io.aesCoreIO.read_data.poke(1.U)
       c.clock.step(1) // Random, you can tweak this
@@ -1902,10 +1902,10 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(r.nextInt(10) + 1) // Random, you can tweak this
       outAESCtrlMonitor.clearMonitoredTransactions()
 
-      assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
       c.clock.step(100) // Random, you can tweak this
       for (i <- 1 until block_count) {
-        assert (c.io.testCState.peek.litValue() == AESState.sDataSetup.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataSetup.litValue())
         assert(!outReadReqMonitor.monitoredTransactions.isEmpty)
         assert(outReadReqMonitor.monitoredTransactions.size == 1)
         var req = outReadReqMonitor.monitoredTransactions.head
@@ -1935,17 +1935,17 @@ class ctrlSanityTest extends AnyFlatSpec with ChiselScalatestTester {
         outAESCtrlMonitor.clearMonitoredTransactions()
         c.clock.step(r.nextInt(10) + 1)
 
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.io.aesCoreIO.read_data.poke(0.U)
         c.clock.step(100) // Random, you can tweak this
         c.io.aesCoreIO.read_data.poke(1.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sWaitResult.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sWaitResult.litValue())
         c.clock.step()
         c.io.aesCoreIO.read_data.poke(100.U)
-        assert (c.io.testCState.peek.litValue() == AESState.sDataWrite.litValue())
+        assert (c.io.testCState.peek.litValue() == CtrlState.sDataWrite.litValue())
         c.clock.step(100) // Random, you can tweak this
       }
-      assert (c.io.testCState.peek.litValue() == AESState.sIdle.litValue())
+      assert (c.io.testCState.peek.litValue() == CtrlState.sIdle.litValue())
       // check that we get the correct write req
       assert(outWriteReqMonitor.monitoredTransactions.nonEmpty)
       assert(outWriteReqMonitor.monitoredTransactions.size == 4 * block_count)

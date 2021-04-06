@@ -1,7 +1,7 @@
 package aes
 
 import chisel3._
-import chisel3.util.{Decoupled, Queue}
+import chisel3.util.Decoupled
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.tile.RoCCCommand
 import freechips.rocketchip.tile.RoCCResponse
@@ -54,29 +54,29 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   // Unwrapping RoCCCommands
   // Does nothing when reset
   when (io.rocc_cmd.fire & ~reset_wire) {
-    when (funct === 0.U(7.W)) {
+    when (funct === AESISA.KEYSETUP128 & ~key_valid_reg) {
       key_valid_reg := true.B
       key_size_reg  := 0.U
       key_addr_reg  := rs1_data
-    } .elsewhen ((funct === 1.U(7.W)) & ~key_valid_reg) { // Cannot overwrite valid (edgecase where ctrl reads at same time)
+    } .elsewhen (funct === AESISA.KEYSETUP256 & ~key_valid_reg) { // Cannot overwrite valid (edgecase where ctrl reads at same time)
       key_valid_reg := true.B
       key_size_reg  := 1.U
       key_addr_reg  := rs1_data
-    } .elsewhen ((funct === 2.U(7.W)) & ~addr_valid_reg) {
+    } .elsewhen (funct === AESISA.ADDRESSLOAD & ~addr_valid_reg) {
       addr_valid_reg := true.B
       src_addr_reg   := rs1_data
       dest_addr_reg  := rs2_data
-    } .elsewhen ((funct === 3.U(7.W)) & ~start_valid_reg) {
+    } .elsewhen (funct === AESISA.ENCRYPTBLOCKS & ~start_valid_reg) {
       start_valid_reg := true.B
       op_type_reg     := 1.U(1.W)
       block_count_reg := rs1_data
       intrpt_en_reg   := rs2_data(0)
-    } .elsewhen ((funct === 4.U(7.W)) & ~start_valid_reg) {
+    } .elsewhen (funct === AESISA.DECRYPTBLOCKS & ~start_valid_reg) {
       start_valid_reg := true.B
       op_type_reg     := 0.U(1.W)
       block_count_reg := rs1_data
       intrpt_en_reg   := rs2_data(0)
-    } .elsewhen ((funct === 5.U(7.W)) & ~resp_valid_reg) {
+    } .elsewhen (funct === AESISA.QUERYSTATUS & ~resp_valid_reg) {
       resp_rd_reg    := rd
       resp_data_reg  := busy
       resp_valid_reg := true.B
