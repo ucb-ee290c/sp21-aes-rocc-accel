@@ -236,7 +236,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
       // Checking when key ready is low
       var blocks = r.nextInt(2 << 32)
-      driver.push(txProto.tx(encBlock(blocks)))
+      driver.push(txProto.tx(encBlock(blocks, interrupt_en = 0)))
       c.clock.step(2) // 1 cycle for driver, 1 cycle for decoupler (total 2)
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -259,7 +259,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       // NOTE: KEY READY SHOULD STILL BE HIGH
       // Checking behavior when when key ready is already high
       blocks = r.nextInt(2 << 32)
-      driver.push(txProto.tx(encBlock(blocks)))
+      driver.push(txProto.tx(encBlock(blocks, interrupt_en = 0)))
       c.clock.step(2)
 
       // Valid should be high for only ONE cycle
@@ -279,7 +279,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
       // Repeating for decryption
       blocks = r.nextInt(2 << 32)
-      driver.push(txProto.tx(decBlock(blocks)))
+      driver.push(txProto.tx(decBlock(blocks, interrupt_en = 0)))
       c.clock.step(2)
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -302,7 +302,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       // NOTE: KEY READY SHOULD STILL BE HIGH
       // Checking behavior when when key ready is already high
       blocks = r.nextInt(2 << 32)
-      driver.push(txProto.tx(decBlock(blocks)))
+      driver.push(txProto.tx(decBlock(blocks, interrupt_en = 0)))
       c.clock.step(2)
 
       // Valid should be high for only ONE cycle
@@ -365,7 +365,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(r.nextInt(100))
 
       assert(!c.io.rocc_busy.peek.litToBoolean)
-      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -402,7 +402,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       monitor.clearMonitoredTransactions() // Clear transactions
 
       assert(!c.io.rocc_busy.peek.litToBoolean)
-      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -456,49 +456,6 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "sanity check decoupler interrupt query" in {
-    test(new RoCCDecoupler()) { c =>
-      // Initializing RoCCCommand driver, receiver (dummy), and monitor
-      val driver = new DecoupledDriverMaster[RoCCCommand](c.clock, c.io.rocc_cmd)
-      val txProto = new DecoupledTX(new RoCCCommand())
-      val monitor = new DecoupledMonitor[RoCCResponse](c.clock, c.io.rocc_resp)
-      val receiver = new DecoupledDriverSlave[RoCCResponse](c.clock, c.io.rocc_resp, 0)
-
-      // Initialize random generator (for cycle count)
-      val r = new Random
-
-      // Initialize signals
-      c.io.reset.poke(false.B)
-      c.io.rocc_excp.poke(false.B)
-      c.io.ctrlIO.interrupt.poke(false.B)
-      c.io.ctrlIO.busy.poke(false.B)
-      c.io.ctrlIO.excp_ready.poke(false.B)
-      c.io.ctrlIO.key_ready.poke(false.B)
-      c.io.ctrlIO.addr_ready.poke(false.B)
-      c.io.ctrlIO.start_ready.poke(false.B)
-      c.clock.step()
-      
-      val rd = r.nextInt(32)
-      driver.push(txProto.tx(getInterrupt(rd)))
-      c.clock.step(2) // 1 cycle for driver, 1 cycle for decoupler (total 2)
-
-      // Should be valid for one cycle
-      assert(c.io.rocc_resp.valid.peek.litToBoolean)
-      c.clock.step()
-
-      var txns = monitor.monitoredTransactions
-      assert(txns.size == 1)
-      assert(!c.io.rocc_resp.valid.peek.litToBoolean)
-      c.clock.step(r.nextInt(100))
-
-      txns = monitor.monitoredTransactions
-      assert(txns.size == 1) // Still only one response
-      val resp = txns.head.data
-      assert(resp.rd.litValue() == rd)
-      assert(resp.data.litValue() == 1) // Currently only one interrupt code
-    }
-  }
-
   it should "test decoupler reset and exception when receiving instruction" in {
     test(new RoCCDecoupler()) { c =>
       // Initializing RoCCCommand driver
@@ -537,11 +494,11 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.key_valid.peek.litToBoolean)
-      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
-      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -549,7 +506,6 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(2)
 
       assert(monitor.monitoredTransactions.isEmpty)
-      driver.push(txProto.tx(getInterrupt(r.nextInt(32))))
       c.clock.step(2)
 
       assert(monitor.monitoredTransactions.isEmpty)
@@ -572,11 +528,11 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.key_valid.peek.litToBoolean)
-      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(encBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
-      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32))))
+      driver.push(txProto.tx(decBlock(r.nextInt(2 << 32), interrupt_en = 0)))
       c.clock.step(2)
 
       assert(!c.io.ctrlIO.start_valid.peek.litToBoolean)
@@ -584,7 +540,6 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(2)
 
       assert(monitor.monitoredTransactions.isEmpty)
-      driver.push(txProto.tx(getInterrupt(r.nextInt(32))))
       c.clock.step(2)
 
       assert(monitor.monitoredTransactions.isEmpty)
@@ -604,7 +559,7 @@ class dcplrSanityTest extends AnyFlatSpec with ChiselScalatestTester {
       val inputs = Seq(
         txProto.tx(keyLoad128(r.nextInt(2 << 32))),
         txProto.tx(addrLoad(r.nextInt(2 << 32), r.nextInt(2 << 32))),
-        txProto.tx(encBlock(r.nextInt(2 << 32))),
+        txProto.tx(encBlock(r.nextInt(2 << 32), interrupt_en = 0)),
       )
 
       // Initialize signals
