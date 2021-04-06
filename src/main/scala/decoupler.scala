@@ -80,12 +80,6 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
       resp_rd_reg    := rd
       resp_data_reg  := busy
       resp_valid_reg := true.B
-    } .elsewhen ((funct === 6.U(7.W)) & ~resp_valid_reg) {
-      resp_rd_reg    := rd
-      resp_data_reg  := 1.U(32.W)
-      // Note: currently accelerator only has 1 interrupt (when enc/dec ends)
-      // !!! ASSUMES THAT CPU WILL ONLY QUERY INTERRUPT STATUS AFTER OBSERVING AN INTERRUPT
-      resp_valid_reg := true.B
     }
   }
 
