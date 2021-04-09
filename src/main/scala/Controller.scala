@@ -293,7 +293,8 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
           cStateWire := CtrlState.sDataSetup
         } .otherwise {
           // Completed Encryption/Decryption, Raise Interrupt
-          io.dcplrIO.interrupt := intrpt_en_reg
+          // NOTE: Moved to when memory FSM finishes writeback
+          // io.dcplrIO.interrupt := intrpt_en_reg
           cStateWire := CtrlState.sIdle
         }
       } .otherwise {
@@ -356,6 +357,9 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         // Completed Memory Write
         when (!io.dmem.busy && enqueue.io.done) {
           mStateWire := MemState.sIdle
+          when (blks_remain_reg === 0.U) {
+            io.dcplrIO.interrupt := intrpt_en_reg
+          }
         }
       } .otherwise {
         // Send Write Request
@@ -375,7 +379,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   }
 
   // Set static system signals
-  io.dcplrIO.busy := (blks_remain_reg =/= 0.U(32.W))
+  io.dcplrIO.busy := (blks_remain_reg =/= 0.U(32.W)) | mState =/= MemState.sIdle
   io.dcplrIO.excp_ready := true.B
   io.aesCoreIO.clk := clock
   io.aesCoreIO.reset_n := ~io.reset

@@ -97,13 +97,15 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
           clock.step()
           cycleCount += 1
         }
-        assert(!dut.module.io.busy.peek().litToBoolean, "Accelerator is still busy when interrupt was raised.")
+        clock.step() // Note: Interrupt and Busy are raised at the same time
+        assert(!dut.module.io.busy.peek().litToBoolean, "Accelerator is still busy after interrupt was raised.")
       } else {
         val initData = if (destructive) stim._4.last else BigInt(0)
         while(!finishedWriting(slaveModel.state, stim._5, stim._4.length, initData, beatBytes)) {
           clock.step()
           cycleCount += 1
         }
+        clock.step(5) // Few cycles delay for AccessAck to propagate back and busy to be de-asserted
         assert(!dut.module.io.busy.peek().litToBoolean, "Accelerator is still busy when data was written back.")
       }
 

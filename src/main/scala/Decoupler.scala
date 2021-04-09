@@ -37,7 +37,6 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   val resp_rd_reg     = RegInit(0.U(5.W))
   val resp_data_reg   = RegInit(0.U(32.W))
   val resp_valid_reg  = RegInit(false.B)
-  val ctrl_busy_reg   = RegInit(false.B)
 
 
   // Helper wires
@@ -128,8 +127,7 @@ class RoCCDecoupler(implicit p: Parameters) extends Module {
   rs1_data      := io.rocc_cmd.bits.rs1
   rs2_data      := io.rocc_cmd.bits.rs2
   rd            := io.rocc_cmd.bits.inst.rd
-  ctrl_busy_reg := io.ctrlIO.busy
-  busy          := (start_valid_reg | ctrl_busy_reg)
+  busy          := (start_valid_reg | io.ctrlIO.busy)
 
   // Should be always ready to process instructions
   io.rocc_cmd.ready      := true.B
