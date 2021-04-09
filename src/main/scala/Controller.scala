@@ -68,7 +68,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
   io.dmem.readReq.valid           := false.B
   io.dmem.readReq.bits.addr       := 0.U
   io.dmem.readReq.bits.totalBytes := 0.U
-  io.dmem.readResp.ready := false.B
+  io.dmem.readResp.ready          := false.B
 
   // Default AESCoreIO Signals
   io.aesCoreIO.we         := false.B
@@ -174,7 +174,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
     }
     is (CtrlState.sKeySetup) {
       // wait data loading from memory
-      cStateWire := CtrlState.sKeySetup;
+      cStateWire := CtrlState.sKeySetup
       when (data_ld_done) {
         // Start the Key Expansion Process
         io.aesCoreIO.cs := true.B
@@ -182,7 +182,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         io.aesCoreIO.address := AESAddr.CTRL
         io.aesCoreIO.write_data := 1.U
         ready_check_reg := false.B
-        cStateWire := CtrlState.sKeyExp;
+        cStateWire := CtrlState.sKeyExp
       }
     }
     is (CtrlState.sKeyExp) {
@@ -336,7 +336,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
           io.aesCoreIO.cs := true.B
           io.aesCoreIO.we := true.B
           io.aesCoreIO.write_data := dequeue.io.dataOut.bits
-          counter_reg := counter_reg + 1.U;
+          counter_reg := counter_reg + 1.U
           // TODO: remove test signals
           io.testAESWriteData.valid := true.B
           io.testAESWriteData.bits := dequeue.io.dataOut.bits
@@ -354,7 +354,9 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       mStateWire := MemState.sWriteReq
       when (counter_reg === 4.U(4.W)) {
         // Completed Memory Write
-        mStateWire := MemState.sIdle
+        when (!io.dmem.busy && enqueue.io.done) {
+          mStateWire := MemState.sIdle
+        }
       } .otherwise {
         // Send Write Request
         enqueue.io.dataIn.valid := true.B
@@ -363,7 +365,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
           testAESReadData_valid := true.B
           testAESReadData_bits := io.aesCoreIO.read_data
           mStateWire := MemState.sWriteIntoMem
-          counter_reg := counter_reg + 1.U;
+          counter_reg := counter_reg + 1.U
         }
       }
     }

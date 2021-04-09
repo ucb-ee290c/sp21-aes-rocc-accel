@@ -10,6 +10,7 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
     val baseAddr = Flipped(Decoupled(UInt(addrBits.W)))
     val dataIn  = Flipped(Decoupled(UInt(32.W)))
     val dmaOutput = Decoupled(new EE290CDMAWriterReq(addrBits, beatBytes))
+    val done = Output(Bool())
   })
 
   val bitsFilled = RegInit(0.U(log2Ceil(128 + 1).W))
@@ -19,6 +20,8 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
   val dataQueue = Module(new Queue(UInt(32.W), 4))
   // Signal when to start writing to DMA (ensure that all 128b of data is correctly matched to address)
   val startWrite = RegInit(false.B)
+  // Delay done by a cycle to account for request to propagate to DMA
+  val doneReg = RegInit(false.B)
 
   // Start writing when we have an entire block of data (128b)
   when (bitsFilled === 128.U) {
@@ -54,6 +57,8 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
     // 16 bytes == 128 bits
     io.dmaOutput.bits.totalBytes := 16.U
   }
+  doneReg := bitsFilled === 0.U
+  io.done := doneReg
 }
 
 // Outputs data from DMA in 32bit chunks (for AES core)
