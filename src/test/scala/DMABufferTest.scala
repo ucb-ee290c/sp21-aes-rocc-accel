@@ -14,6 +14,11 @@ class DMABufferTest extends AnyFlatSpec with ChiselScalatestTester {
   // ---------------------------- DMA Input Buffer Tests ----------------------------
   // Testing various beatByte sizes centered at 16 (128bits) for complete block write
 
+  // ----------------------------------- NOTICE -------------------------------------
+  // This test has not been updated for the latest DMABuffer update (where it reverse
+  // all bits to match how software stores data in memory). Tests here will FAIL.
+  // Use the accelerator-level testbench to verify correctness
+
   it should "Test DMAInputBuffer when beatBytes == 16" in {
     val beatBytes = 16
     test(new DMAInputBuffer(32, beatBytes)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
