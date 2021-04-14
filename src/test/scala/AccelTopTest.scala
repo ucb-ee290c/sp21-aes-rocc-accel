@@ -9,7 +9,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.tile.{RoCCCommand, RoCCResponse}
-import verif.TLMemoryModel.WordAddr
+import verif.TLMemoryModel.{State, WordAddr, read}
 import verif._
 
 
@@ -20,7 +20,8 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   val r = new scala.util.Random
 
   // Temporary storage for keys in key-reusal case
-  var prev_key:BigInt = 0
+  var prev_key: BigInt      = 0
+  var prev_key_addr: BigInt = 0
 
   def testAccelerator(dut: AESAccelStandaloneBlock, clock: Clock, keySize: Int, encdec: Int, interrupt: Int, rounds: Int, reuse_key_en: Boolean): Boolean = {
     assert(keySize == 128 || keySize == 256 || keySize == -1, s"KeySize must be 128, 256, or -1 (random). Given: $keySize")
@@ -55,17 +56,22 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
       else encrypt = encdec == 1
       if (interrupt == -1) interrupt_en = r.nextInt(2)
 
-      val stim = genAESStim(actualKeySize, r.nextInt(10) + 1, destructive = destructive, beatBytes, r)
+      val stim = genAESStim(actualKeySize, r.nextInt(10) + 1, destructive = destructive, if (reuse_key) prev_key_addr else BigInt(-1), beatBytes, r)
       slaveModel.state = stim._6
 
       // Randomize reuse_key (cannot reuse on first enc/dec, key expansion required)
       if (i != 0 && reuse_key_en) reuse_key = r.nextBoolean()
-      if (!reuse_key) prev_key = stim._2
+      if (!reuse_key) {
+        prev_key_addr = stim._1
+        prev_key = stim._2
+      }
 
 //      // Debug Printing
-//      println(s"Debug key size: $actualKeySize")
-//      println(s"Debug encdec: $encrypt")
+//      println(s"Debug: key size: $actualKeySize")
+//      println(s"Debug: encdec: $encrypt")
 //      println(s"Debug: $stim")
+//      println(s"Debug: Reuse key $reuse_key")
+//      println(s"Debug: Destructive $destructive")
 
       var inputCmd = Seq[DecoupledTX[RoCCCommand]]()
       // Key load instruction
@@ -135,14 +141,14 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
     allPass
   }
 
-  // Basic sanity test: elaborate to see if anything structure-wise broke
-  it should "elaborate the accelerator" in {
-    val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
-    // Requires verilator backend! (For verilog blackbox files)
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      assert(true)
-    }
-  }
+//  // Elaborate to see if anything structure-wise broke
+//  it should "elaborate the accelerator" in {
+//    val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
+//    // Requires verilator backend! (For verilog blackbox files)
+//    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+//      assert(true)
+//    }
+//  }
 
   it should "Test 128b AES Encryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
@@ -155,7 +161,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 128b AES Decryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, keySize = 128, encdec = -1, interrupt = 0, rounds = 20, reuse_key_en = true)
+      val result = testAccelerator(dut, c.clock, keySize = 128, encdec = 0, interrupt = 0, rounds = 20, reuse_key_en = true)
       assert(result)
     }
   }
@@ -171,7 +177,7 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test 256b AES Decryption" in {
     val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val result = testAccelerator(dut, c.clock, keySize = 256, encdec = -1, interrupt = 0, rounds = 20, reuse_key_en = true)
+      val result = testAccelerator(dut, c.clock, keySize = 256, encdec = 0, interrupt = 0, rounds = 20, reuse_key_en = true)
       assert(result)
     }
   }
@@ -184,4 +190,52 @@ class AccelTopTest extends AnyFlatSpec with ChiselScalatestTester {
       assert(result)
     }
   }
+
+
+//  // Debug sanity test
+//  // 128B Key:   256'h2b7e151628aed2a6abf7158809cf4f3c00000000000000000000000000000000
+//  // plaintext:  128'h6bc1bee22e409f96e93d7e117393172a
+//  // ciphertext: 128'h3ad77bb40d7a3660a89ecaf32466ef97
+//  it should "debug AES sanity check" in {
+//    val dut = LazyModule(new AESAccelStandaloneBlock(beatBytes))
+//    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+//      // RoCCCommand driver + RoCCResponse receiver
+//      val driver = new DecoupledDriverMaster[RoCCCommand](c.clock, dut.module.io.cmd)
+//      val txProto = new DecoupledTX(new RoCCCommand())
+//      val monitor = new DecoupledMonitor[RoCCResponse](c.clock, dut.module.io.resp)
+//      val receiver = new DecoupledDriverSlave[RoCCResponse](c.clock, dut.module.io.resp, 0)
+//
+//      // Mock Memory
+//      val slaveFn = new TLMemoryModel(dut.to_mem.params)
+//      val slaveModel = new TLDriverSlave(c.clock, dut.to_mem, slaveFn, TLMemoryModel.State.empty())
+//      val slaveMonitor = new TLMonitor(c.clock, dut.to_mem)
+//
+//      val keyData = BigInt("2b7e151628aed2a6abf7158809cf4f3c00000000000000000000000000000000", 16)
+//      var initMem: Map[WordAddr, BigInt] = Map ()
+//      val keyDataRev = BigInt(keyData.toByteArray.reverse)
+//      initMem = initMem + (0.toLong -> (keyDataRev & BigInt("1" * 128, 2)))
+//      initMem = initMem + (1.toLong -> (keyDataRev >> 128))
+//      val textData = BigInt("6bc1bee22e409f96e93d7e117393172a", 16)
+//      initMem = initMem + (2.toLong -> BigInt(textData.toByteArray.reverse))
+//      slaveModel.state = State.init(initMem, beatBytes)
+//
+//      val input = Seq(
+//        txProto.tx(keyLoad128(0x0)),
+//        txProto.tx(addrLoad(0x20, 0x30)),
+//        txProto.tx(encBlock(1, 0))
+//      )
+//      driver.push(input)
+//      c.clock.step(50)
+//
+//      while(!finishedWriting(slaveModel.state, 0x30, 1, 0, beatBytes)) {
+//        c.clock.step()
+//      }
+//      c.clock.step(5) // Few cycles delay for AccessAck to propagate back and busy to be de-asserted
+//      assert(!dut.module.io.busy.peek().litToBoolean, "Accelerator is still busy when data was written back.")
+//
+//      val actual = read(slaveModel.state.mem, 3.toLong, beatBytes, -1)
+//      println(s"RESULT: ${actual.toString(16)}")
+//      assert(actual == BigInt(Array(0.toByte) ++ BigInt("3ad77bb40d7a3660a89ecaf32466ef97", 16).toByteArray.takeRight(16).reverse))
+//    }
+//  }
 }

@@ -22,6 +22,10 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
   val startWrite = RegInit(false.B)
   // Delay done by a cycle to account for request to propagate to DMA
   val doneReg = RegInit(false.B)
+  // Data to-be-reversed
+  val toReverse = Wire(UInt(32.W))
+  // Data with bytes reversed
+  val reverse = Wire(UInt(32.W))
 
   // Start writing when we have an entire block of data (128b)
   when (bitsFilled === 128.U) {
@@ -36,7 +40,7 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
   }
   // NOTE: The two statements below will NEVER concurrently fire (fire conditions prevent)
   when (dataQueue.io.deq.fire()) {
-    wideData := wideData | (dataQueue.io.deq.bits << bitsFilled).asUInt()
+    wideData := wideData | (reverse << bitsFilled).asUInt()
     bitsFilled := bitsFilled + 32.U
   }
   when (io.dmaOutput.fire()) {
@@ -59,6 +63,10 @@ class DMAInputBuffer (addrBits: Int = 32, beatBytes: Int) extends Module {
   }
   doneReg := bitsFilled === 0.U
   io.done := doneReg
+
+  // Reversing bytes
+  toReverse := dataQueue.io.deq.bits
+  reverse   := (toReverse(7,0) << 24).asUInt() | (toReverse(15,8) << 16).asUInt() | (toReverse(23,16) << 8).asUInt() | toReverse(31,24).asUInt()
 }
 
 // Outputs data from DMA in 32bit chunks (for AES core)
@@ -73,6 +81,7 @@ class DMAOutputBuffer (beatBytes: Int) extends Module {
   val bitsFilled = RegInit(0.U(log2Ceil(256 + 1).W))
   val wideData = RegInit(0.U(256.W)) // Max data we will ever read at a time is 256b
   val dataQueue = Module(new Queue(UInt(32.W), 8))
+  val reverse = Wire(UInt(32.W)) // Used to carry data with bytes reversed
 
   // NOTE: These two statements will NEVER concurrently fire (fire conditions prevent)
   when (dataQueue.io.enq.fire()) {
@@ -88,5 +97,8 @@ class DMAOutputBuffer (beatBytes: Int) extends Module {
   io.dataOut <> dataQueue.io.deq
 
   dataQueue.io.enq.valid := bitsFilled >= 32.U
-  dataQueue.io.enq.bits := wideData(31,0)
+  dataQueue.io.enq.bits := reverse
+
+  // Reversing bytes
+  reverse := (wideData(7,0) << 24).asUInt() | (wideData(15,8) << 16).asUInt() | (wideData(23,16) << 8).asUInt() | wideData(31,24).asUInt()
 }

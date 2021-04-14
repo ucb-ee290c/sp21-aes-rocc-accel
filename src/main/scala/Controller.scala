@@ -281,7 +281,7 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
       when (mState === MemState.sWriteIntoMem) {
         // Read AES result out to DMA
         io.aesCoreIO.cs := 1.U
-        io.aesCoreIO.address := AESAddr.RESULT + 3.U - counter_reg
+        io.aesCoreIO.address := AESAddr.RESULT + counter_reg
         cStateWire := CtrlState.sDataWrite
       } .elsewhen (data_wr_done) {
         when (blks_remain_reg > 0.U) {
@@ -344,10 +344,10 @@ class AESController(addrBits: Int, beatBytes: Int)(implicit p: Parameters) exten
         }
       }
       when (cState === CtrlState.sKeySetup) {
-        io.aesCoreIO.address := AESAddr.KEY + mem_target_reg - 1.U  - counter_reg
+        io.aesCoreIO.address := AESAddr.KEY + counter_reg
         io.testAESWriteData.bits := ((AESAddr.KEY + mem_target_reg - 1.U  - counter_reg) << 32) + dequeue.io.dataOut.bits
       } .elsewhen (cState === CtrlState.sDataSetup) {
-        io.aesCoreIO.address := AESAddr.TEXT + 3.U - counter_reg
+        io.aesCoreIO.address := AESAddr.TEXT + counter_reg
         io.testAESWriteData.bits := ((AESAddr.TEXT + 3.U - counter_reg) << 32) + dequeue.io.dataOut.bits
       }
     }

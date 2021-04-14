@@ -30,12 +30,13 @@ package object AESTestUtils {
   // Generates random (but legal) addresses for key, source text, dest text
   // Legal key address: anything beatByte aligned
   // Legal data address: anything beatByte aligned and != key addr, and if src/dest overlap it must directly overlap (same address, destructive)
+  // If prevKeyAddr != -1, then use that address
   // (keyAddr: BigInt, srcAddr: BigInt, destAddr: BigInt)
-  def getRandomKeyTextAddr(textBlocks: Int, destructive: Boolean, beatBytes: Int, r: Random): (BigInt, BigInt, BigInt) = {
+  def getRandomKeyTextAddr(textBlocks: Int, destructive: Boolean, prevKeyAddr: BigInt, beatBytes: Int, r: Random): (BigInt, BigInt, BigInt) = {
     assert(textBlocks > 0, s"# of text block must be at least 1. Given: $textBlocks")
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
-    val keyAddr = BigInt(32, r) & ~(beatBytes - 1)
+    val keyAddr = if (prevKeyAddr != -1) prevKeyAddr else BigInt(32, r) & ~(beatBytes - 1)
     var srcAddr = BigInt(32, r) & ~(beatBytes - 1)
     while (keyAddr <= srcAddr && srcAddr <= (keyAddr + 32)) {
       srcAddr = BigInt(32, r) & ~(beatBytes - 1)
@@ -54,18 +55,20 @@ package object AESTestUtils {
   // Helper method for creating TLMemoryModel state with initial AES Data (key, text)
   // Assumes all addresses are legal (beatBytes aligned)
   // Assumes keyData is 256 bits, and textData is 128 bits per block
+  // NOTE: Reverses data to mimic how it will be stored in memory
   def getTLMemModelState(keyAddr: BigInt, keyData: BigInt, textAddr: BigInt, textData: Seq[BigInt], beatBytes: Int): State = {
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
     var initMem: Map[WordAddr, BigInt] = Map ()
     val keyWordAddr = keyAddr / beatBytes
-    initMem = initMem + (keyWordAddr.toLong -> (keyData & BigInt("1" * 128, 2)))
-    initMem = initMem + ((keyWordAddr + 1).toLong -> (keyData >> 128))
+    val keyDataRev = BigInt(keyData.toByteArray.takeRight(32).reverse.padTo(32, 0.toByte))
+    initMem = initMem + (keyWordAddr.toLong -> (keyDataRev & BigInt("1" * 128, 2)))
+    initMem = initMem + ((keyWordAddr + 1).toLong -> (keyDataRev >> 128))
 
     val txtWordAddr = textAddr / beatBytes
     for (i <- textData.indices) {
-      // Blocks are not in little-endian order, but doesn't matter as each block is independent
-      initMem = initMem + ((txtWordAddr + i).toLong -> textData(i))
+      // NOTE: Prepend 0 byte s.t. it is interpreted as a positive (bug where if the last byte is FF it will be removed due to negative interpretation)
+      initMem = initMem + ((txtWordAddr + i).toLong -> BigInt(Array(0.toByte) ++ textData(i).toByteArray.takeRight(16).reverse.padTo(16, 0.toByte)))
     }
 
     State.init(initMem, beatBytes)
@@ -73,11 +76,12 @@ package object AESTestUtils {
 
   // Generates random stimulus for AES Accelerator
   // (keyAddr: BigInt, keyData (256b post-padded): BigInt, srcAddr: BigInt, textData: Seq[BigInt], destAddr: BigInt, memState: TLMemModel.State)
-  def genAESStim(keySize: Int, textBlocks: Int, destructive: Boolean, beatBytes: Int, r: Random): (BigInt, BigInt, BigInt, Seq[BigInt], BigInt, State) = {
+  def genAESStim(keySize: Int, textBlocks: Int, destructive: Boolean, prevKeyAddr: BigInt, beatBytes: Int, r: Random):
+  (BigInt, BigInt, BigInt, Seq[BigInt], BigInt, State) = {
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
     // Generate Addresses
-    val addresses = getRandomKeyTextAddr(textBlocks, destructive, beatBytes, r)
+    val addresses = getRandomKeyTextAddr(textBlocks, destructive, prevKeyAddr, beatBytes, r)
     val keyAddr = addresses._1
     val srcAddr = addresses._2
     val dstAddr = addresses._3
@@ -97,11 +101,7 @@ package object AESTestUtils {
     // Generate State
     val state = getTLMemModelState(keyAddr, keyData, srcAddr, srcData, beatBytes)
 
-    if (keySize == 128) {
-      (keyAddr + 16, keyData, srcAddr, srcData, dstAddr, state)
-    } else {
-      (keyAddr, keyData, srcAddr, srcData, dstAddr, state)
-    }
+    (keyAddr, keyData, srcAddr, srcData, dstAddr, state)
   }
 
   // Conditional if last block of result data has been written
@@ -109,7 +109,9 @@ package object AESTestUtils {
   def finishedWriting(state: State, destAddr: BigInt, txtBlocks: Int, initData: BigInt, beatBytes: Int): Boolean = {
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
-    read(state.mem, (destAddr/beatBytes + txtBlocks*(16/beatBytes) - 1).toLong, beatBytes, -1) != initData
+    // Reversing since data is stored in reverse
+    BigInt(Array(0.toByte) ++ read(state.mem, (destAddr/beatBytes + txtBlocks*(16/beatBytes) - 1).toLong, beatBytes, -1)
+      .toByteArray.takeRight(16).reverse) != initData
   }
 
   // Checks if output matches standard AES library (ECB)
@@ -117,7 +119,9 @@ package object AESTestUtils {
     assert(beatBytes == 16, "TEMP: beatBytes must be 16 (see accelerator test for more details)")
 
     val cipher = AESECBCipher(keySize, key, encrypt)
-    val results = srcData.map(x => BigInt(Array(0.toByte) ++ cipher.doFinal(x.toByteArray.reverse.padTo(16, 0.toByte).reverse.takeRight(16))))
+    // NOTE: Additional reverse to match how data will be stored in memory
+    // NOTE: Prepending a 0 byte in front so that results are interpreted as positives
+    val results = srcData.map(x => BigInt(Array(0.toByte) ++ cipher.doFinal(x.toByteArray.reverse.padTo(16, 0.toByte).reverse.takeRight(16)).reverse))
 
     var matched = true
     for (i <- results.indices) {
