@@ -1,4 +1,8 @@
 # AES RoCC Accelerator/Co-Processor --- EE290C
+AES RoCC Accelerator
+
+## Team Members
+Anson Tsai (TsaiAnson), Eric Wu (ericwu13), Daniel Fan (gobears)
 
 ## Requirements
 The AES RoCC Accelerator utilizes a DMA generator and the chisel verification library.
@@ -19,7 +23,7 @@ Note that we start in the chipyard root directory.
 Note that we start in the chipyard root directory.
 ```
 ~/chipyard> cd generators
-~/chipyard/generators> git submodule add git@bwrcrepo.eecs.berkeley.edu:EE290C_EE194_tstech28/dma.git
+~/chipyard/generators> git submodule add https://github.com/ucberkeley-ee290c/sp21-dma
 ```
 
 
@@ -27,7 +31,7 @@ Note that we start in the chipyard root directory.
 Note that we start in the chipyard root directory.
 ```
 ~/chipyard> cd generators
-~/chipyard/generators> git submodule add git@bwrcrepo.eecs.berkeley.edu:EE290C_EE194_tstech28/aes.git
+~/chipyard/generators> git submodule add https://github.com/ucberkeley-ee290c/sp21-aes-rocc-accel
 ```
 
 ### Modifying your build.sbt
@@ -98,6 +102,3 @@ sbt:aes> compile                       // If you just want to compile src code
 sbt:aes> test:compile                  // If you just want to compile test code
 sbt:aes> testOnly aes.dcplrSanityTest  // Compiles all dependencies and runs test
 ```
-
-## Spec
-Please refer to the chip spec [here](https://docs.google.com/document/d/1J9azqokkR0AsUUAkwU-hotsNtb-0KX5duK7d7f_3MhI/edit?usp=sharing) (to avoid having multiple versions).
