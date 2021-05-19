@@ -102,3 +102,6 @@ sbt:aes> compile                       // If you just want to compile src code
 sbt:aes> test:compile                  // If you just want to compile test code
 sbt:aes> testOnly aes.dcplrSanityTest  // Compiles all dependencies and runs test
 ```
+
+## Spec
+For information on the accelerator design, please refer to the chip spec [here](https://docs.google.com/document/d/1J9azqokkR0AsUUAkwU-hotsNtb-0KX5duK7d7f_3MhI/edit?usp=sharing) (you may need to request read access).
