@@ -1,8 +1,47 @@
-# AES RoCC Accelerator/Co-Processor --- EE290C
-AES RoCC Accelerator
+# AES RoCC Accelerator/Co-Processor --- EE290C Spring 2021
+AES RoCC Accelerator for baremetal machines.
 
 ## Team Members
 Anson Tsai (TsaiAnson), Eric Wu (ericwu13), Daniel Fan (gobears)
+
+## Table of Contents
+[Brief Intro](#brief-intro)
+
+[Installation Instructions](#installation-instructions)
+
+## Brief Intro
+The AES RoCC Accelerator enables hardware accelerated AES block cipher operations for baremetal machines.
+It is built using [Secwork's open-source AES core](https://github.com/secworks/aes) and additional hardware logic for RoCC integration.
+The accelerator also comes with a custom software stack that can be found in the EE290C software stack repo 
+[here](https://bwrcrepo.eecs.berkeley.edu/EE290C_EE194_tstech28/ee290c-software-stack).
+
+To add the accelerator to a rocket configuration, simply import the `aes` project (installation instructions below) and add the accelerator configuration:
+```
+import aes._
+
+...
+
+class BaremetalRocketConfig extends Config(
+  ...
+  new aes.WithAESAccel ++
+  ...
+)
+```
+
+### Top-Level Diagram and Implementation
+The top-level accelerator block diagram is shown below:
+
+![diagram](https://github.com/ucberkeley-ee290c/sp21-aes-rocc-accel/blob/master/diagrams/AESAccelTopLevelDiagram.png?raw=true)
+
+For a brief description, the AES RoCC Accelerator communicates with the rocket core via RISC-V instructions transmitted on `RoCCIO` interface and connects to the memory bus via a `TileLink` interface.
+Accelerator instructions from the CPU are processed by the `RoCC Decoupler`, which processes instructions in a non-blocking fashion and retains important information for the `Controller`.
+The `Controller` is responsible for taking the information from the `RoCC Decoupler` and operating the `SecWorks AES core` by performing the necessary setup steps and initiating the core. 
+To fetch the input data (key and text data) and write back output data (encrypted/decrypted text), the controller sends memory requests to the DMA, which interfaces with the memory bus.
+
+### More Documentation/Spec
+For more information on the implementation of the accelerator, documentation can be found in the chip spec 
+[here](https://docs.google.com/document/d/1J9azqokkR0AsUUAkwU-hotsNtb-0KX5duK7d7f_3MhI/edit?usp=sharing) (you may need to request read access).
+
 
 ## Requirements
 The AES RoCC Accelerator utilizes a DMA generator and the chisel verification library.
@@ -102,6 +141,3 @@ sbt:aes> compile                       // If you just want to compile src code
 sbt:aes> test:compile                  // If you just want to compile test code
 sbt:aes> testOnly aes.dcplrSanityTest  // Compiles all dependencies and runs test
 ```
-
-## Spec
-For information on the accelerator design, please refer to the chip spec [here](https://docs.google.com/document/d/1J9azqokkR0AsUUAkwU-hotsNtb-0KX5duK7d7f_3MhI/edit?usp=sharing) (you may need to request read access).
